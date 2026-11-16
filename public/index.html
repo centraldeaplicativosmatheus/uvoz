@@ -138,12 +138,21 @@
         <div id="messages" class="messages" aria-live="polite"></div>
         <div class="composer-wrap">
           <div id="mention-popup" class="mention-popup" role="listbox" hidden></div>
+          <div id="clipboard-menu" class="clipboard-menu" hidden>
+            <button type="button" id="clipboard-paste">Colar (Ctrl + V)</button>
+          </div>
+          <input id="attachment-input" type="file" multiple
+            accept=".txt,.csv,.xls,.xlsx,.ods,.doc,.docx,.odt,.jpg,.jpeg,.png,.gif,.webp,.avif,.bmp,.mp4,.webm,.mov,.m4v,.avi,.mkv" hidden>
           <form id="composer" class="composer">
+            <button type="button" id="attach-files" class="icon-btn attach-btn" title="Anexar arquivos" aria-label="Anexar arquivos">
+              <svg viewBox="0 0 24 24"><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.5-9.5a4 4 0 0 1 5.7 5.7L9.2 17.7a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+            </button>
             <textarea id="composer-input" rows="1" maxlength="2000" placeholder="Conversar em #geral"></textarea>
             <button type="submit" class="icon-btn" aria-label="Enviar">
               <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2.5-6.5z"/></svg>
             </button>
           </form>
+          <div id="attachment-list" class="attachment-list" hidden></div>
           <div id="typing" class="typing muted"></div>
         </div>
       </section>

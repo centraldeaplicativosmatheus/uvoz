@@ -143,8 +143,23 @@ body.hide-members .members { display: none; }
 .msg.grouped:hover .msg-hover-time { opacity: 1; }
 
 .composer-wrap { padding: 0 16px 4px; flex: none; }
-.composer { display: flex; align-items: flex-end; gap: 4px; background: var(--bg-input); border-radius: var(--radius); padding: 6px 6px 6px 16px; }
+.composer { display: flex; align-items: flex-end; gap: 4px; background: var(--bg-input); border-radius: var(--radius); padding: 6px; }
 .composer textarea { flex: 1; resize: none; background: transparent; border: 0; outline: none; padding: 6px 0; max-height: 200px; line-height: 1.4; }
+.attach-btn { margin-bottom: 1px; }
+.clipboard-menu { position: fixed; z-index: 30; min-width: 180px; padding: 4px; background: var(--bg-side); border: 1px solid var(--bg-active); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.clipboard-menu button { width: 100%; padding: 8px 10px; text-align: left; color: var(--text); background: transparent; border: 0; border-radius: 4px; cursor: pointer; }
+.clipboard-menu button:hover { background: var(--bg-hover); }
+.attachment-list { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 4px 2px; }
+.attachment-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 6px; border-radius: 4px; background: var(--bg-side); font-size: 12px; }
+.attachment-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-chip button { border: 0; color: var(--text-2); background: transparent; cursor: pointer; font-size: 16px; line-height: 1; }
+.attachment-chip button:hover { color: var(--text); }
+.msg-content { min-width: 0; }
+.message-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.message-attachment { max-width: min(420px, 100%); }
+.attachment-download { display: block; padding: 6px 10px; border: 1px solid var(--bg-active); border-radius: 5px; background: var(--bg-side); color: var(--text); cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.attachment-download:hover { background: var(--bg-hover); }
+.attachment-preview { display: block; max-width: min(360px, 100%); max-height: 280px; border-radius: 6px; object-fit: contain; cursor: pointer; }
 .typing { height: 20px; font-size: 12px; padding: 2px 4px; }
 
 /* ---------- Palco de vídeo ---------- */

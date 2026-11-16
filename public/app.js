@@ -871,7 +871,7 @@
   function messageActions(m) {
     if (m.author.id !== state.me.id) return null;
     return el('div', { class: 'msg-actions' },
-      el('button', { class: 'icon-btn small', title: 'Editar', 'aria-label': 'Editar mensagem', onclick: () => startEdit(m.id) }, svg(ICONS.edit)),
+      m.text ? el('button', { class: 'icon-btn small', title: 'Editar', 'aria-label': 'Editar mensagem', onclick: () => startEdit(m.id) }, svg(ICONS.edit)) : null,
       el('button', {
         class: 'icon-btn small danger', title: 'Apagar', 'aria-label': 'Apagar mensagem',
         onclick: () => {
@@ -904,8 +904,43 @@
       return el('div', { class: 'msg-edit' }, ta,
         el('small', { class: 'muted' }, 'Enter para salvar · Esc para cancelar'));
     }
-    return el('div', { class: 'msg-text' }, richText(m.text, isChannel),
-      m.editedTs ? el('small', { class: 'edited muted', title: fmtTime(m.editedTs) }, ' (editado)') : null);
+    const text = m.text ? el('div', { class: 'msg-text' }, richText(m.text, isChannel),
+      m.editedTs ? el('small', { class: 'edited muted', title: fmtTime(m.editedTs) }, ' (editado)') : null) : null;
+    const attachments = (m.attachments || []).map((attachment) => {
+      const item = el('div', { class: 'message-attachment' });
+      const download = async () => {
+        try {
+          const response = await fetch(`/api/attachments/${encodeURIComponent(attachment.id)}`, {
+            headers: { Authorization: `Bearer ${state.token}` },
+          });
+          if (!response.ok) throw new Error('Não foi possível baixar o arquivo.');
+          const url = URL.createObjectURL(await response.blob());
+          const link = el('a', { href: url, download: attachment.name });
+          document.body.append(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      };
+      if (attachment.type.startsWith('image/')) {
+        const image = el('img', { class: 'attachment-preview', alt: attachment.name, title: attachment.name });
+        image.addEventListener('click', download);
+        fetch(`/api/attachments/${encodeURIComponent(attachment.id)}`, {
+          headers: { Authorization: `Bearer ${state.token}` },
+        }).then((response) => {
+          if (!response.ok) throw new Error('Arquivo indisponível.');
+          return response.blob();
+        }).then((blob) => { image.src = URL.createObjectURL(blob); }).catch(() => {});
+        item.append(image);
+      }
+      item.append(el('button', { type: 'button', class: 'attachment-download', onclick: download },
+        `${attachment.name} · ${(attachment.size / (1024 * 1024)).toFixed(2)} MB`));
+      return item;
+    });
+    return el('div', { class: 'msg-content' }, text,
+      attachments.length ? el('div', { class: 'message-attachments' }, attachments) : null);
   }
 
   function messageNode(m, grouped) {
@@ -1131,7 +1166,70 @@
 
   // Composer
   const input = $('#composer-input');
+  const fileInput = $('#attachment-input');
+  const attachmentList = $('#attachment-list');
+  const stagedAttachments = [];
+  const MAX_MESSAGE_ATTACHMENTS = 15 * 1024 * 1024;
+  const MAX_MESSAGE_VIDEO = 10 * 1024 * 1024;
+  const ALLOWED_ATTACHMENT_EXTENSIONS = new Set([
+    'txt', 'csv', 'xls', 'xlsx', 'ods', 'doc', 'docx', 'odt',
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp',
+    'mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv',
+  ]);
+  let sendingMessage = false;
   let lastTypingSent = 0;
+  function formatFileSize(size) {
+    return size < 1024 * 1024 ? `${(size / 1024).toFixed(0)} KB` : `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  }
+  function renderStagedAttachments() {
+    attachmentList.hidden = !stagedAttachments.length;
+    attachmentList.replaceChildren(...stagedAttachments.map((item) => el('span', { class: 'attachment-chip' },
+      el('span', { class: 'attachment-chip-name', title: item.file.name }, `${item.file.name} · ${formatFileSize(item.file.size)}`),
+      el('button', {
+        type: 'button', 'aria-label': `Remover ${item.file.name}`, disabled: sendingMessage,
+        onclick: () => { stagedAttachments.splice(stagedAttachments.indexOf(item), 1); renderStagedAttachments(); },
+      }, '×'))));
+  }
+  function addFiles(files) {
+    const newFiles = [...files];
+    if (!newFiles.length) return;
+    let total = stagedAttachments.reduce((sum, item) => sum + item.file.size, 0);
+    for (const file of newFiles) {
+      const extension = file.name.split('.').pop().toLowerCase();
+      if (!ALLOWED_ATTACHMENT_EXTENSIONS.has(extension)) {
+        toast(`Formato não permitido: ${file.name}`, 'error');
+        continue;
+      }
+      const isVideo = ['mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv'].includes(extension);
+      if (isVideo && file.size > MAX_MESSAGE_VIDEO) {
+        toast(`Vídeos podem ter no máximo 10 MB: ${file.name}`, 'error');
+        continue;
+      }
+      if (file.size > MAX_MESSAGE_ATTACHMENTS || total + file.size > MAX_MESSAGE_ATTACHMENTS) {
+        toast('O limite total de arquivos por mensagem é 15 MB.', 'error');
+        continue;
+      }
+      stagedAttachments.push({ file, id: null });
+      total += file.size;
+    }
+    renderStagedAttachments();
+  }
+  async function uploadAttachment(item) {
+    if (item.id) return item.id;
+    const response = await fetch('/api/attachments', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${state.token}`,
+        'Content-Type': 'application/octet-stream',
+        'X-File-Name': encodeURIComponent(item.file.name),
+      },
+      body: item.file,
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'Não foi possível anexar o arquivo.');
+    item.id = result.attachment.id;
+    return item.id;
+  }
   function autoGrow() {
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 200) + 'px';
@@ -1161,28 +1259,108 @@
       $('#composer').requestSubmit();
     }
   });
-  $('#composer').addEventListener('submit', (e) => {
+  $('#attach-files').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    addFiles(fileInput.files);
+    fileInput.value = '';
+  });
+  input.addEventListener('paste', (e) => {
+    const files = [...(e.clipboardData?.files || [])];
+    if (!files.length) {
+      for (const item of e.clipboardData?.items || []) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+    }
+    if (files.length) {
+      e.preventDefault();
+      addFiles(files);
+    }
+  });
+  const clipboardMenu = $('#clipboard-menu');
+  input.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    clipboardMenu.style.left = `${Math.min(e.clientX, window.innerWidth - 200)}px`;
+    clipboardMenu.style.top = `${Math.min(e.clientY, window.innerHeight - 48)}px`;
+    clipboardMenu.hidden = false;
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (!clipboardMenu.contains(e.target)) clipboardMenu.hidden = true;
+  });
+  $('#clipboard-paste').addEventListener('click', async () => {
+    clipboardMenu.hidden = true;
+    try {
+      if (navigator.clipboard?.read) {
+        const clipboardItems = await navigator.clipboard.read();
+        const files = [];
+        for (const clipboardItem of clipboardItems) {
+          for (const type of clipboardItem.types) {
+            if (type.startsWith('image/')) {
+              const blob = await clipboardItem.getType(type);
+              const extension = type.split('/')[1].replace('jpeg', 'jpg');
+              files.push(new File([blob], `imagem-colada-${Date.now()}.${extension}`, { type }));
+            }
+          }
+        }
+        if (files.length) addFiles(files);
+        else if (navigator.clipboard.readText) {
+          const text = await navigator.clipboard.readText();
+          input.setRangeText(text, input.selectionStart, input.selectionEnd, 'end');
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.focus();
+        } else {
+          toast('Use Ctrl + V para colar o conteúdo da área de transferência.', 'error');
+        }
+      } else {
+        toast('Use Ctrl + V para colar o conteúdo da área de transferência.', 'error');
+      }
+    } catch (err) {
+      toast(err.message || 'Não foi possível acessar a área de transferência. Use Ctrl + V.', 'error');
+    }
+  });
+  $('#composer').addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = input.value.trim();
     const scope = viewScope();
-    if (!text || !scope) return;
+    if ((!text && !stagedAttachments.length) || !scope || sendingMessage) return;
     if (!state.socket?.connected) return toast('Sem conexão no momento. Tente de novo em instantes.', 'error');
     const key = keyOf(scope);
-    const pend = addPending(scope, text);
-    state.socket.timeout(15000).emit('message:send', { scope, text }, (err, res) => {
-      dropPending(key, (p) => p === pend);
-      if (err || res?.error) {
-        toast(err ? 'A mensagem não foi enviada. Verifique sua conexão.' : res.error, 'error');
-        if (!input.value && viewKey() === key) { input.value = text; autoGrow(); }
-        return;
+    const files = stagedAttachments.slice();
+    sendingMessage = true;
+    $('#attach-files').disabled = true;
+    renderStagedAttachments();
+    const pend = text ? addPending(scope, text) : null;
+    try {
+      const attachmentIds = [];
+      for (const item of files) attachmentIds.push(await uploadAttachment(item));
+      const result = await new Promise((resolve) => {
+        state.socket.timeout(15000).emit('message:send', { scope, text, attachmentIds }, (err, res) => resolve({ err, res }));
+      });
+      if (result.err || result.res?.error) {
+        if (pend) dropPending(key, (p) => p === pend);
+        throw new Error(result.err ? 'A mensagem não foi enviada. Verifique sua conexão.' : result.res.error);
       }
-      if (res?.message) onMessageNew(res.message); // rede de segurança (não duplica: confere o id)
-    });
-    input.value = '';
-    storage.del(`uvoz:draft:${keyOf(scope)}`);
-    autoGrow();
-    closeMentionPopup();
-    lastTypingSent = 0;
+      if (result.res?.message) onMessageNew(result.res.message);
+      stagedAttachments.splice(0, files.length);
+      renderStagedAttachments();
+      if (input.value.trim() === text) {
+        input.value = '';
+        storage.del(`uvoz:draft:${key}`);
+        autoGrow();
+      }
+      closeMentionPopup();
+      lastTypingSent = 0;
+    } catch (err) {
+      if (pend) dropPending(key, (p) => p === pend);
+      toast(err.message, 'error');
+    } finally {
+      sendingMessage = false;
+      $('#attach-files').disabled = false;
+      renderStagedAttachments();
+      input.focus();
+    }
   });
 
   // ----- Autocompletar menções ----------------------------------------------

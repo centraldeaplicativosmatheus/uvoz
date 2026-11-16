@@ -29,6 +29,32 @@ const ACCESS_CODE = process.env.ACCESS_CODE || ''; // exigido para criar conta (
 const LEGACY_DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data', 'db.json');
 const MAX_PEERS_PER_ROOM = Number(process.env.MAX_PEERS_PER_ROOM) || 8;
 const MAX_MESSAGE_LENGTH = 4000;
+const MAX_ATTACHMENT_SIZE = 15 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 10 * 1024 * 1024;
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'data', 'uploads');
+const ATTACHMENT_TYPES = {
+  txt: { mime: 'text/plain' },
+  csv: { mime: 'text/csv' },
+  xls: { mime: 'application/vnd.ms-excel' },
+  xlsx: { mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+  ods: { mime: 'application/vnd.oasis.opendocument.spreadsheet' },
+  doc: { mime: 'application/msword' },
+  docx: { mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+  odt: { mime: 'application/vnd.oasis.opendocument.text' },
+  jpg: { mime: 'image/jpeg' },
+  jpeg: { mime: 'image/jpeg' },
+  png: { mime: 'image/png' },
+  gif: { mime: 'image/gif' },
+  webp: { mime: 'image/webp' },
+  avif: { mime: 'image/avif' },
+  bmp: { mime: 'image/bmp' },
+  mp4: { mime: 'video/mp4', video: true },
+  webm: { mime: 'video/webm', video: true },
+  mov: { mime: 'video/quicktime', video: true },
+  m4v: { mime: 'video/x-m4v', video: true },
+  avi: { mime: 'video/x-msvideo', video: true },
+  mkv: { mime: 'video/x-matroska', video: true },
+};
 const RESERVED_USERNAMES = new Set(['todos', 'everyone', 'here', 'aqui', 'admin', 'sistema', 'uvoz']);
 
 function parseIceServers() {
@@ -221,6 +247,54 @@ app.post('/api/logout', asyncRoute(async (req, res) => {
   res.json({ ok: true });
 }));
 
+app.post('/api/attachments', express.raw({ type: 'application/octet-stream', limit: MAX_ATTACHMENT_SIZE }), asyncRoute(async (req, res) => {
+  const userId = await auth.userIdFromToken(pool, bearer(req));
+  if (!userId || !store.users.has(userId)) return res.status(401).json({ error: 'Sessão inválida.' });
+  if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Arquivo vazio ou inválido.' });
+
+  let originalName;
+  try { originalName = decodeURIComponent(String(req.headers['x-file-name'] || '')); }
+  catch { return res.status(400).json({ error: 'Nome de arquivo inválido.' }); }
+  originalName = path.basename(originalName.replace(/[\\/]/g, path.sep))
+    .replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 255);
+  const extension = path.extname(originalName).slice(1).toLowerCase();
+  const type = ATTACHMENT_TYPES[extension];
+  if (!originalName || !type) return res.status(400).json({ error: 'Formato de arquivo não permitido.' });
+  if (req.body.length > MAX_ATTACHMENT_SIZE) return res.status(413).json({ error: 'O limite total por mensagem é 15 MB.' });
+  if (type.video && req.body.length > MAX_VIDEO_SIZE) return res.status(413).json({ error: 'Vídeos podem ter no máximo 10 MB.' });
+
+  const id = crypto.randomUUID();
+  const storageName = crypto.randomUUID();
+  const filePath = path.join(UPLOAD_DIR, storageName);
+  await fs.promises.mkdir(UPLOAD_DIR, { recursive: true });
+  await fs.promises.writeFile(filePath, req.body, { flag: 'wx' });
+  try {
+    await store.createPendingAttachment({
+      id, storageName, uploaderId: userId, originalName,
+      mimeType: type.mime, size: req.body.length,
+    });
+  } catch (err) {
+    await fs.promises.unlink(filePath).catch(() => {});
+    throw err;
+  }
+  res.status(201).json({ attachment: { id, name: originalName, size: req.body.length, type: type.mime } });
+}));
+
+app.get('/api/attachments/:id', asyncRoute(async (req, res) => {
+  const userId = await auth.userIdFromToken(pool, bearer(req));
+  if (!userId || !store.users.has(userId)) return res.status(401).json({ error: 'Sessão inválida.' });
+  const attachment = await store.getAttachment(req.params.id);
+  if (!attachment || !attachment.message_id) return res.status(404).json({ error: 'Arquivo não encontrado.' });
+  const message = await store.getMessage(attachment.message_id);
+  const scope = message && await resolveScope(message.message.scope, userId);
+  if (!scope) return res.status(404).json({ error: 'Arquivo não encontrado.' });
+  const filePath = path.join(UPLOAD_DIR, attachment.storage_name);
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.download(filePath, attachment.original_name, (err) => {
+    if (err && !res.headersSent) res.status(err.code === 'ENOENT' ? 404 : 500).json({ error: 'Não foi possível baixar o arquivo.' });
+  });
+}));
+
 // ---------------------------------------------------------------------------
 // Socket.io
 // ---------------------------------------------------------------------------
@@ -341,8 +415,10 @@ io.on('connection', async (socket) => {
     const scope = await resolveScope(p.scope, userId);
     if (!scope) return { error: 'Conversa não encontrada.' };
     const text = sanitizeText(p.text, MAX_MESSAGE_LENGTH);
-    if (!text) return { error: 'Mensagem vazia.' };
-    const message = await store.createMessage(scope, userId, text);
+    const attachmentIds = Array.isArray(p.attachmentIds) ? p.attachmentIds : [];
+    if (!text && !attachmentIds.length) return { error: 'Mensagem vazia.' };
+    const message = await store.createMessage(scope, userId, text, attachmentIds);
+    if (message.error) return message;
     if (scope.type === 'dm') {
       for (const member of store.dmMembers(scope.dm)) {
         io.to(`user:${member}`).emit('dm:upsert', store.publicDm({ ...scope.dm, last_message_at: message.ts }, member));
@@ -369,7 +445,12 @@ io.on('connection', async (socket) => {
     if (!found || found.row.author_id !== userId) return { error: 'Você só pode apagar suas mensagens.' };
     const scope = await resolveScope(found.message.scope, userId);
     if (!scope) return { error: 'Conversa não encontrada.' };
-    await store.deleteMessage(found.message.id);
+    const storedFiles = await store.deleteMessage(found.message.id);
+    for (const storageName of storedFiles) {
+      await fs.promises.unlink(path.join(UPLOAD_DIR, storageName)).catch((err) => {
+        if (err.code !== 'ENOENT') console.error('[uvoz] erro removendo anexo:', err);
+      });
+    }
     emitToScope(scope, 'message:deleted', { id: found.message.id, scope: found.message.scope });
     return { ok: true };
   });
@@ -504,6 +585,14 @@ function leaveVoice(socket) {
   io.emit('voice:state', { socketId: socket.id, userId: state.userId, channelId: null });
 }
 
+app.use((err, req, res, next) => {
+  if (req.path === '/api/attachments' && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'O limite total por mensagem é 15 MB.' });
+  }
+  console.error('[uvoz] erro HTTP:', err);
+  next(err);
+});
+
 // ---------------------------------------------------------------------------
 // Inicialização
 // ---------------------------------------------------------------------------
@@ -512,6 +601,10 @@ async function main() {
   await store.loadUsers();
   await store.seedChannels(LEGACY_DATA_FILE);
   await store.loadChannels();
+  await fs.promises.mkdir(UPLOAD_DIR, { recursive: true });
+  await store.purgePendingAttachments(UPLOAD_DIR, Date.now() - 24 * 3600 * 1000);
+  setInterval(() => store.purgePendingAttachments(UPLOAD_DIR, Date.now() - 24 * 3600 * 1000)
+    .catch((err) => console.error('[uvoz] erro limpando anexos pendentes:', err)), 60 * 60 * 1000).unref();
   loadAssets();
   await auth.purgeExpiredSessions(pool);
   setInterval(() => auth.purgeExpiredSessions(pool).catch(() => {}), 6 * 3600 * 1000).unref();
