@@ -219,6 +219,7 @@
   });
 
   function showLogin(message) {
+    clearStagedAttachments();
     document.documentElement.classList.remove('has-session');
     state.me = null;
     $('#login').hidden = false;
@@ -362,6 +363,7 @@
     const reconnecting = !!state.me && state.me.id === data.me.id && !$('#app').hidden;
     if (lastUserId !== data.me.id) { // outra conta nesta aba: nada do estado anterior vale
       state.view = null; state.conv.clear(); state.divider.clear(); pendings.clear();
+      clearStagedAttachments();
     }
     lastUserId = data.me.id;
     lastMarked.clear(); // um read:mark pode ter se perdido na queda; o servidor ignora repetições
@@ -612,6 +614,12 @@
   function openView(view) {
     view = { type: view.type, id: view.type === 'dm' ? Number(view.id) : view.id };
     const prevKey = viewKey();
+    const nextKey = view.type === 'voice' ? null : keyOf(view);
+    if (prevKey !== nextKey && stagedAttachments?.length && !sendingMessage) {
+      stagedAttachments.length = 0;
+      renderStagedAttachments();
+      toast('Os arquivos selecionados foram removidos ao trocar de conversa.', 'info');
+    }
     state.view = view;
     storage.set('uvoz:view', JSON.stringify(view));
     $('#sidebar').classList.remove('open');
@@ -932,7 +940,9 @@
         }).then((response) => {
           if (!response.ok) throw new Error('Arquivo indisponível.');
           return response.blob();
-        }).then((blob) => { image.src = URL.createObjectURL(blob); }).catch(() => {});
+        }).then((blob) => { image.src = URL.createObjectURL(blob); }).catch((err) => {
+          toast(err.message, 'error');
+        });
         item.append(image);
       }
       item.append(el('button', { type: 'button', class: 'attachment-download', onclick: download },
@@ -1190,9 +1200,14 @@
         onclick: () => { stagedAttachments.splice(stagedAttachments.indexOf(item), 1); renderStagedAttachments(); },
       }, '×'))));
   }
+  function clearStagedAttachments() {
+    stagedAttachments.length = 0;
+    renderStagedAttachments();
+  }
   function addFiles(files) {
     const newFiles = [...files];
     if (!newFiles.length) return;
+    if (sendingMessage) return toast('Aguarde o envio atual antes de anexar outros arquivos.', 'info');
     let total = stagedAttachments.reduce((sum, item) => sum + item.file.size, 0);
     for (const file of newFiles) {
       const extension = file.name.split('.').pop().toLowerCase();
@@ -1214,12 +1229,12 @@
     }
     renderStagedAttachments();
   }
-  async function uploadAttachment(item) {
+  async function uploadAttachment(item, token) {
     if (item.id) return item.id;
     const response = await fetch('/api/attachments', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${state.token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/octet-stream',
         'X-File-Name': encodeURIComponent(item.file.name),
       },
@@ -1327,6 +1342,8 @@
     if ((!text && !stagedAttachments.length) || !scope || sendingMessage) return;
     if (!state.socket?.connected) return toast('Sem conexão no momento. Tente de novo em instantes.', 'error');
     const key = keyOf(scope);
+    const token = state.token;
+    const socket = state.socket;
     const files = stagedAttachments.slice();
     sendingMessage = true;
     $('#attach-files').disabled = true;
@@ -1334,9 +1351,15 @@
     const pend = text ? addPending(scope, text) : null;
     try {
       const attachmentIds = [];
-      for (const item of files) attachmentIds.push(await uploadAttachment(item));
+      for (const item of files) {
+        if (state.token !== token || state.socket !== socket) throw new Error('A sessão mudou. Envie a mensagem novamente.');
+        attachmentIds.push(await uploadAttachment(item, token));
+      }
+      if (state.token !== token || state.socket !== socket || !socket.connected) {
+        throw new Error('A conexão mudou. Envie a mensagem novamente.');
+      }
       const result = await new Promise((resolve) => {
-        state.socket.timeout(15000).emit('message:send', { scope, text, attachmentIds }, (err, res) => resolve({ err, res }));
+        socket.timeout(15000).emit('message:send', { scope, text, attachmentIds }, (err, res) => resolve({ err, res }));
       });
       if (result.err || result.res?.error) {
         if (pend) dropPending(key, (p) => p === pend);
