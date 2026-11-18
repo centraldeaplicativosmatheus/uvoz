@@ -289,6 +289,7 @@ app.get('/api/attachments/:id', asyncRoute(async (req, res) => {
   const scope = message && await resolveScope(message.message.scope, userId);
   if (!scope) return res.status(404).json({ error: 'Arquivo não encontrado.' });
   const filePath = path.join(UPLOAD_DIR, attachment.storage_name);
+  res.type(attachment.mime_type);
   res.set('X-Content-Type-Options', 'nosniff');
   res.download(filePath, attachment.original_name, (err) => {
     if (err && !res.headersSent) res.status(err.code === 'ENOENT' ? 404 : 500).json({ error: 'Não foi possível baixar o arquivo.' });
