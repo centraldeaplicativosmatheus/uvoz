@@ -95,10 +95,11 @@ Acesse http://localhost:3000, clique em **Criar conta** e use o código de acess
 
 Veja `.env.example`.
 
-Mensagens em canais de texto e DMs aceitam documentos, planilhas, imagens e vídeos. Cada mensagem
-pode ter até 15 MB em anexos; cada vídeo pode ter até 10 MB. O diretório `UPLOAD_DIR` precisa ser
-persistente e incluído nos backups, pois os backups MySQL não contêm o conteúdo dos arquivos. Em
-instalações atrás do Nginx, permita requisições de pelo menos 15 MB (`client_max_body_size 16m;`).
+Mensagens em canais de texto e DMs aceitam até cinco imagens e arquivos como `.doc`, `.xlsx`,
+`.ppt` e `.txt`, além dos formatos de anexos já suportados. O limite total é de 10 MB por mensagem.
+O diretório `UPLOAD_DIR` precisa ser persistente e incluído nos backups, pois os backups MySQL não
+contêm o conteúdo dos arquivos. Em instalações atrás do Nginx, permita requisições de pelo menos
+10 MB (`client_max_body_size 10m;`).
 
 ## Colocando em produção
 

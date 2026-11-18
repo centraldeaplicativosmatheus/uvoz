@@ -1169,10 +1169,10 @@
   const fileInput = $('#attachment-input');
   const attachmentList = $('#attachment-list');
   const stagedAttachments = [];
-  const MAX_MESSAGE_ATTACHMENTS = 15 * 1024 * 1024;
-  const MAX_MESSAGE_VIDEO = 10 * 1024 * 1024;
+  const MAX_MESSAGE_ATTACHMENTS = 10 * 1024 * 1024;
+  const MAX_MESSAGE_IMAGES = 5;
   const ALLOWED_ATTACHMENT_EXTENSIONS = new Set([
-    'txt', 'csv', 'xls', 'xlsx', 'ods', 'doc', 'docx', 'odt',
+    'txt', 'csv', 'xls', 'xlsx', 'ods', 'doc', 'docx', 'odt', 'ppt', 'pptx',
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp',
     'mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv',
   ]);
@@ -1194,23 +1194,29 @@
     const newFiles = [...files];
     if (!newFiles.length) return;
     let total = stagedAttachments.reduce((sum, item) => sum + item.file.size, 0);
+    let imageCount = stagedAttachments.filter((item) =>
+      item.file.type.startsWith('image/') ||
+      ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(item.file.name.split('.').pop().toLowerCase()),
+    ).length;
     for (const file of newFiles) {
       const extension = file.name.split('.').pop().toLowerCase();
       if (!ALLOWED_ATTACHMENT_EXTENSIONS.has(extension)) {
         toast(`Formato não permitido: ${file.name}`, 'error');
         continue;
       }
-      const isVideo = ['mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv'].includes(extension);
-      if (isVideo && file.size > MAX_MESSAGE_VIDEO) {
-        toast(`Vídeos podem ter no máximo 10 MB: ${file.name}`, 'error');
+      const isImage = file.type.startsWith('image/') ||
+        ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp'].includes(extension);
+      if (isImage && imageCount >= MAX_MESSAGE_IMAGES) {
+        toast('Você pode enviar no máximo 5 imagens por mensagem.', 'error');
         continue;
       }
       if (file.size > MAX_MESSAGE_ATTACHMENTS || total + file.size > MAX_MESSAGE_ATTACHMENTS) {
-        toast('O limite total de arquivos por mensagem é 15 MB.', 'error');
+        toast('O limite total de arquivos por mensagem é 10 MB.', 'error');
         continue;
       }
       stagedAttachments.push({ file, id: null });
       total += file.size;
+      if (isImage) imageCount += 1;
     }
     renderStagedAttachments();
   }

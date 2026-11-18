@@ -29,8 +29,7 @@ const ACCESS_CODE = process.env.ACCESS_CODE || ''; // exigido para criar conta (
 const LEGACY_DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data', 'db.json');
 const MAX_PEERS_PER_ROOM = Number(process.env.MAX_PEERS_PER_ROOM) || 8;
 const MAX_MESSAGE_LENGTH = 4000;
-const MAX_ATTACHMENT_SIZE = 15 * 1024 * 1024;
-const MAX_VIDEO_SIZE = 10 * 1024 * 1024;
+const MAX_MESSAGE_ATTACHMENTS = 10 * 1024 * 1024;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'data', 'uploads');
 const ATTACHMENT_TYPES = {
   txt: { mime: 'text/plain' },
@@ -41,6 +40,9 @@ const ATTACHMENT_TYPES = {
   doc: { mime: 'application/msword' },
   docx: { mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
   odt: { mime: 'application/vnd.oasis.opendocument.text' },
+  ppt: { mime: 'application/vnd.ms-powerpoint' },
+  ppt: { mime: 'application/vnd.ms-powerpoint' },
+  pptx: { mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
   jpg: { mime: 'image/jpeg' },
   jpeg: { mime: 'image/jpeg' },
   png: { mime: 'image/png' },
@@ -247,7 +249,7 @@ app.post('/api/logout', asyncRoute(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.post('/api/attachments', express.raw({ type: 'application/octet-stream', limit: MAX_ATTACHMENT_SIZE }), asyncRoute(async (req, res) => {
+app.post('/api/attachments', express.raw({ type: 'application/octet-stream', limit: MAX_MESSAGE_ATTACHMENTS }), asyncRoute(async (req, res) => {
   const userId = await auth.userIdFromToken(pool, bearer(req));
   if (!userId || !store.users.has(userId)) return res.status(401).json({ error: 'Sessão inválida.' });
   if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Arquivo vazio ou inválido.' });
@@ -260,8 +262,7 @@ app.post('/api/attachments', express.raw({ type: 'application/octet-stream', lim
   const extension = path.extname(originalName).slice(1).toLowerCase();
   const type = ATTACHMENT_TYPES[extension];
   if (!originalName || !type) return res.status(400).json({ error: 'Formato de arquivo não permitido.' });
-  if (req.body.length > MAX_ATTACHMENT_SIZE) return res.status(413).json({ error: 'O limite total por mensagem é 15 MB.' });
-  if (type.video && req.body.length > MAX_VIDEO_SIZE) return res.status(413).json({ error: 'Vídeos podem ter no máximo 10 MB.' });
+  if (req.body.length > MAX_MESSAGE_ATTACHMENTS) return res.status(413).json({ error: 'O limite total por mensagem é 10 MB.' });
 
   const id = crypto.randomUUID();
   const storageName = crypto.randomUUID();
@@ -587,7 +588,7 @@ function leaveVoice(socket) {
 
 app.use((err, req, res, next) => {
   if (req.path === '/api/attachments' && err.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'O limite total por mensagem é 15 MB.' });
+    return res.status(413).json({ error: 'O limite total por mensagem é 10 MB.' });
   }
   console.error('[uvoz] erro HTTP:', err);
   next(err);
