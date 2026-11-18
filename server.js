@@ -30,7 +30,9 @@ const LEGACY_DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'data', '
 const MAX_PEERS_PER_ROOM = Number(process.env.MAX_PEERS_PER_ROOM) || 8;
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_MESSAGE_ATTACHMENTS = 10 * 1024 * 1024;
+const MAX_PROFILE_AVATAR_SIZE = 10 * 1024 * 1024;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'data', 'uploads');
+const AVATAR_DIR = path.join(UPLOAD_DIR, 'avatars');
 const ATTACHMENT_TYPES = {
   txt: { mime: 'text/plain' },
   csv: { mime: 'text/csv' },
@@ -40,7 +42,6 @@ const ATTACHMENT_TYPES = {
   doc: { mime: 'application/msword' },
   docx: { mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
   odt: { mime: 'application/vnd.oasis.opendocument.text' },
-  ppt: { mime: 'application/vnd.ms-powerpoint' },
   ppt: { mime: 'application/vnd.ms-powerpoint' },
   pptx: { mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
   jpg: { mime: 'image/jpeg' },
@@ -247,6 +248,81 @@ app.post('/api/login', asyncRoute(async (req, res) => {
 app.post('/api/logout', asyncRoute(async (req, res) => {
   await auth.deleteSession(pool, bearer(req));
   res.json({ ok: true });
+}));
+
+app.post('/api/profile/avatar', express.raw({ type: 'application/octet-stream', limit: MAX_PROFILE_AVATAR_SIZE }), asyncRoute(async (req, res) => {
+  const userId = await auth.userIdFromToken(pool, bearer(req));
+  if (!userId || !store.users.has(userId)) return res.status(401).json({ error: 'Sessão inválida.' });
+  if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Selecione uma imagem válida.' });
+
+  let originalName;
+  try { originalName = decodeURIComponent(String(req.headers['x-file-name'] || '')); }
+  catch { return res.status(400).json({ error: 'Nome de arquivo inválido.' }); }
+  originalName = path.basename(originalName.replace(/[\\/]/g, path.sep))
+    .replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 255);
+  const extension = path.extname(originalName).slice(1).toLowerCase();
+  const mimeType = extension === 'png' ? 'image/png' : ['jpg', 'jpeg'].includes(extension) ? 'image/jpeg' : null;
+  const validSignature = mimeType === 'image/png'
+    ? req.body.length >= 8 && req.body.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))
+    : mimeType === 'image/jpeg' && req.body.length >= 3 && req.body[0] === 0xff && req.body[1] === 0xd8 && req.body[2] === 0xff;
+  if (!mimeType || !validSignature) return res.status(400).json({ error: 'Use uma imagem PNG ou JPEG válida.' });
+  if (req.body.length > MAX_PROFILE_AVATAR_SIZE) return res.status(413).json({ error: 'A imagem deve ter no máximo 10 MB.' });
+
+  const storageName = crypto.randomUUID();
+  const filePath = path.join(AVATAR_DIR, storageName);
+  await fs.promises.mkdir(AVATAR_DIR, { recursive: true });
+  await fs.promises.writeFile(filePath, req.body, { flag: 'wx' });
+  let result;
+  try {
+    const updatedAt = Math.max(Date.now(), Number(store.users.get(userId).avatarVersion || 0) + 1);
+    result = await store.setUserAvatar(userId, { storageName, mimeType, updatedAt });
+  } catch (err) {
+    await fs.promises.unlink(filePath).catch((unlinkError) => {
+      if (unlinkError.code !== 'ENOENT') console.error('[uvoz] erro removendo avatar sem registro:', unlinkError);
+    });
+    throw err;
+  }
+  if (!result) {
+    await fs.promises.unlink(filePath).catch((err) => {
+      if (err.code !== 'ENOENT') console.error('[uvoz] erro removendo avatar não associado:', err);
+    });
+    return res.status(404).json({ error: 'Usuário não encontrado.' });
+  }
+  if (result.previousStorageName) {
+    await fs.promises.unlink(path.join(AVATAR_DIR, result.previousStorageName)).catch((err) => {
+      if (err.code !== 'ENOENT') console.error('[uvoz] erro removendo avatar anterior:', err);
+    });
+  }
+  const user = {
+    ...result.user,
+    online: isOnline(userId),
+    lastSeen: store.lastSeenAt.get(userId) || null,
+  };
+  io.emit('user:updated', user);
+  res.json({ user });
+}));
+
+app.get('/api/users/:id/avatar', asyncRoute(async (req, res) => {
+  const userId = await auth.userIdFromToken(pool, bearer(req));
+  if (!userId || !store.users.has(userId)) return res.status(401).json({ error: 'Sessão inválida.' });
+  const targetId = Number(req.params.id);
+  if (!Number.isSafeInteger(targetId) || targetId <= 0) return res.status(404).json({ error: 'Foto não encontrada.' });
+  const avatar = await store.getUserAvatar(targetId);
+  if (!avatar || !/^[0-9a-f-]{36}$/i.test(avatar.storageName)
+    || !['image/png', 'image/jpeg'].includes(avatar.mimeType)) {
+    return res.status(404).json({ error: 'Foto não encontrada.' });
+  }
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'private, max-age=31536000, immutable',
+    'Content-Type': avatar.mimeType,
+  });
+  res.sendFile(path.join(AVATAR_DIR, avatar.storageName), (err) => {
+    if (err && !res.headersSent) {
+      if (err.code !== 'ENOENT') console.error('[uvoz] erro enviando foto de perfil:', err);
+      res.status(err.code === 'ENOENT' ? 404 : 500).json({ error: 'Não foi possível carregar a foto.' });
+    }
+  });
 }));
 
 app.post('/api/attachments', express.raw({ type: 'application/octet-stream', limit: MAX_MESSAGE_ATTACHMENTS }), asyncRoute(async (req, res) => {
@@ -589,6 +665,9 @@ function leaveVoice(socket) {
 app.use((err, req, res, next) => {
   if (req.path === '/api/attachments' && err.type === 'entity.too.large') {
     return res.status(413).json({ error: 'O limite total por mensagem é 10 MB.' });
+  }
+  if (req.path === '/api/profile/avatar' && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'A imagem deve ter no máximo 10 MB.' });
   }
   console.error('[uvoz] erro HTTP:', err);
   next(err);

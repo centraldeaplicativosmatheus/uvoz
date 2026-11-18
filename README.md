@@ -5,6 +5,7 @@ Plataforma de comunicação interna com:
 - **Contas**: cadastro com usuário e senha (exige o código de acesso da empresa), sessões de 30 dias e limite de tentativas de login.
 - **Canais de texto**: histórico no banco com rolagem infinita, "fulano está digitando…", links clicáveis, editar/apagar as próprias mensagens.
 - **Mensagens diretas (DM)**: conversa privada 1:1 — clique em alguém na lista de membros ou no **+** de "Mensagens diretas".
+- **Anexos e fotos de perfil**: envie imagens e arquivos em conversas; clique em uma imagem para ampliá-la e edite sua foto de perfil com recorte quadrado, visível para os demais usuários.
 - **Menções**: `@usuario`, `@todos`/`@everyone` com autocompletar (setas + Enter/Tab), destaque da mensagem e contador vermelho de menções no canal.
 - **Não lidas e notificações**: canal em negrito, divisor "Novas mensagens", total no título da aba e notificação do navegador para DMs e menções.
 - **Salas de voz e vídeo em grupo**: microfone, câmera e indicador de quem está falando.
@@ -91,15 +92,17 @@ Acesse http://localhost:3000, clique em **Criar conta** e use o código de acess
 | `TURN_URLS` | vazio | URLs do TURN separadas por vírgula |
 | `TURN_TTL_SECONDS` | `43200` | Validade das credenciais TURN (12 h) |
 | `DATA_FILE` | `./data/db.json` | Arquivo da versão antiga, importado uma única vez se existir |
-| `UPLOAD_DIR` | `./data/uploads` | Armazenamento privado dos anexos enviados |
+| `UPLOAD_DIR` | `./data/uploads` | Armazenamento privado dos anexos e das fotos de perfil (`avatars/`) |
 
 Veja `.env.example`.
 
 Mensagens em canais de texto e DMs aceitam até cinco imagens e arquivos como `.doc`, `.xlsx`,
 `.ppt` e `.txt`, além dos formatos de anexos já suportados. O limite total é de 10 MB por mensagem.
-O diretório `UPLOAD_DIR` precisa ser persistente e incluído nos backups, pois os backups MySQL não
-contêm o conteúdo dos arquivos. Em instalações atrás do Nginx, permita requisições de pelo menos
-10 MB (`client_max_body_size 10m;`).
+Fotos de perfil aceitam PNG e JPEG de até 10 MB; o usuário pode ajustar um recorte quadrado antes de
+salvar. Anexos e fotos são exibidos somente para usuários autenticados. O diretório `UPLOAD_DIR`
+precisa ser persistente e incluído nos backups, pois os backups MySQL não contêm o conteúdo dos
+arquivos. Em instalações atrás do Nginx, permita requisições de pelo menos 10 MB
+(`client_max_body_size 10m;`).
 
 ## Colocando em produção
 
@@ -254,7 +257,7 @@ public/rtc.js      WebRTC: conexões P2P (perfect negotiation), recuperação au
 - **Login corporativo** (Google Workspace / Microsoft 365) no lugar do código de acesso compartilhado.
 - **Permissões por cargo** (quem pode criar/apagar canais, moderar mensagens).
 - **SFU (LiveKit ou mediasoup)** para salas com dezenas de pessoas e gravação de reuniões.
-- Upload de arquivos e imagens no chat, reações e respostas em thread.
+- Reações e respostas em thread.
 - Chamada de voz/vídeo direto de uma DM.
 - Seleção de microfone/câmera.
 - App desktop (Electron/Tauri) com atalho global de "apertar para falar".

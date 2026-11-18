@@ -102,7 +102,7 @@
 
       <!-- Painel do usuário -->
       <div class="user-panel">
-        <div id="me-avatar" class="avatar"></div>
+        <button id="me-avatar" class="avatar profile-avatar" type="button" aria-label="Opções da foto de perfil" aria-haspopup="dialog"></button>
         <div class="user-panel-name">
           <strong id="me-name"></strong>
           <small id="me-status" class="muted">@usuario</small>
@@ -235,6 +235,44 @@
         <button value="cancel" class="btn" formnovalidate>Fechar</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="profile-menu-dialog" class="dialog profile-menu-dialog">
+    <form method="dialog">
+      <h3>Foto de perfil</h3>
+      <button id="edit-profile-photo" type="button" class="btn btn-primary">Editar foto de perfil</button>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn" formnovalidate>Fechar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <input id="profile-photo-input" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" hidden>
+  <dialog id="profile-photo-dialog" class="dialog profile-photo-dialog">
+    <div class="profile-photo-content">
+      <h3>Editar foto de perfil</h3>
+      <div id="avatar-crop" class="avatar-crop" aria-label="Arraste a imagem para escolher o enquadramento">
+        <img id="avatar-crop-image" alt="Prévia do enquadramento da foto">
+      </div>
+      <p class="muted crop-help">Arraste a imagem para ajustar e use o controle para aproximar.</p>
+      <button id="change-profile-photo" type="button" class="btn">Escolher outra imagem</button>
+      <label class="crop-zoom-label" for="avatar-zoom">Zoom</label>
+      <input id="avatar-zoom" class="crop-zoom" type="range" min="1" max="3" step="0.01" value="1">
+      <div class="dialog-actions">
+        <button id="cancel-profile-photo" type="button" class="btn">Cancelar</button>
+        <button id="save-profile-photo" type="button" class="btn btn-primary" disabled>Salvar foto</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="image-viewer-dialog" class="image-viewer-dialog" aria-label="Visualizar imagem">
+    <div class="image-viewer-content">
+      <button id="close-image-viewer" type="button" class="icon-btn image-viewer-close" aria-label="Fechar imagem">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <img id="image-viewer-image" alt="">
+      <div id="image-viewer-caption" class="image-viewer-caption"></div>
+    </div>
   </dialog>
 
   <div id="toasts" class="toasts" aria-live="assertive"></div>

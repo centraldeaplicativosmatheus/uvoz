@@ -12,6 +12,7 @@
       else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
       else node.setAttribute(k, v === true ? '' : v);
     }
+
     for (const c of children.flat()) {
       if (c == null || c === false) continue;
       node.append(c instanceof Node ? c : document.createTextNode(String(c)));
@@ -46,7 +47,7 @@
     me: null,
     socketId: null,
     channels: [],
-    users: new Map(), // id -> { id, username, displayName, color, online, lastSeen }
+    users: new Map(), // id -> { id, username, displayName, color, avatarVersion, online, lastSeen }
     voice: new Map(), // socketId -> { socketId, userId, channelId, media }
     dms: new Map(), // dmId -> { id, userId, lastMessageAt }
     unread: new Map(), // 'c:geral' | 'd:12' -> { unread, mentions, lastReadId }
@@ -89,13 +90,254 @@
     return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('') || '?';
   }
 
+  const avatarImageCache = new Map();
+  function loadAvatarImage(user, image) {
+    const key = `${user.id}:${user.avatarVersion}`;
+    let request = avatarImageCache.get(key);
+    if (!request) {
+      request = fetch(`/api/users/${encodeURIComponent(user.id)}/avatar?v=${encodeURIComponent(user.avatarVersion)}`, {
+        headers: { Authorization: `Bearer ${state.token}` },
+      }).then((response) => {
+        if (!response.ok) throw new Error('Não foi possível carregar a foto de perfil.');
+        return response.blob();
+      }).then((blob) => URL.createObjectURL(blob)).catch((err) => {
+        avatarImageCache.delete(key);
+        console.error('[uvoz] erro carregando foto de perfil:', err);
+        return null;
+      });
+      avatarImageCache.set(key, request);
+    }
+    request.then((url) => { if (url) image.src = url; });
+  }
+
+  function renderAvatar(element, user) {
+    element.style.background = user?.color || '#80848e';
+    element.replaceChildren(initials(user?.displayName || user?.name));
+    if (!user?.id || !user.avatarVersion) return;
+    const image = el('img', { class: 'avatar-image', alt: '' });
+    element.append(image);
+    loadAvatarImage(user, image);
+  }
+
   function avatar(user, size = '') {
-    return el('div', { class: `avatar ${size}`, style: `background:${user?.color || '#80848e'}` }, initials(user?.displayName || user?.name));
+    const element = el('div', { class: `avatar ${size}` });
+    renderAvatar(element, user);
+    return element;
   }
 
   function avatarWithPresence(user, size = 'sm') {
     return el('div', { class: 'avatar-wrap' }, avatar(user, size), el('span', { class: `presence ${user?.online ? 'on' : 'off'}` }));
   }
+
+  const imageViewerDialog = $('#image-viewer-dialog');
+  const imageViewerImage = $('#image-viewer-image');
+  function openImageViewer(src, name) {
+    imageViewerImage.src = src;
+    imageViewerImage.alt = name;
+    $('#image-viewer-caption').textContent = name;
+    imageViewerDialog.showModal();
+  }
+  $('#close-image-viewer').addEventListener('click', () => imageViewerDialog.close());
+  imageViewerDialog.addEventListener('click', (event) => {
+    if (event.target === imageViewerDialog) imageViewerDialog.close();
+  });
+  imageViewerDialog.addEventListener('close', () => {
+    imageViewerImage.removeAttribute('src');
+    $('#image-viewer-caption').textContent = '';
+  });
+
+  const profileMenuDialog = $('#profile-menu-dialog');
+  const profilePhotoDialog = $('#profile-photo-dialog');
+  const profilePhotoInput = $('#profile-photo-input');
+  const avatarCrop = $('#avatar-crop');
+  const avatarCropImage = $('#avatar-crop-image');
+  const avatarZoom = $('#avatar-zoom');
+  const saveProfilePhoto = $('#save-profile-photo');
+  const cancelProfilePhoto = $('#cancel-profile-photo');
+  const changeProfilePhoto = $('#change-profile-photo');
+  let profilePhotoLoadId = 0;
+  let profilePhotoSaving = false;
+  const avatarCropState = {
+    file: null, mimeType: null, image: null, imageUrl: null, zoom: 1, offsetX: 0, offsetY: 0,
+    renderedWidth: 0, renderedHeight: 0, left: 0, top: 0, scale: 1, drag: null,
+  };
+
+  function updateAvatarCrop() {
+    const image = avatarCropState.image;
+    const size = avatarCrop.clientWidth;
+    if (!image || !size) return;
+    const fitScale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
+    const scale = fitScale * avatarCropState.zoom;
+    const width = image.naturalWidth * scale;
+    const height = image.naturalHeight * scale;
+    avatarCropState.offsetX = Math.max(-(width - size) / 2, Math.min((width - size) / 2, avatarCropState.offsetX));
+    avatarCropState.offsetY = Math.max(-(height - size) / 2, Math.min((height - size) / 2, avatarCropState.offsetY));
+    avatarCropState.renderedWidth = width;
+    avatarCropState.renderedHeight = height;
+    avatarCropState.scale = scale;
+    avatarCropState.left = (size - width) / 2 + avatarCropState.offsetX;
+    avatarCropState.top = (size - height) / 2 + avatarCropState.offsetY;
+    avatarCropImage.style.width = `${width}px`;
+    avatarCropImage.style.height = `${height}px`;
+    avatarCropImage.style.left = `${avatarCropState.left}px`;
+    avatarCropImage.style.top = `${avatarCropState.top}px`;
+  }
+
+  function resetAvatarCrop() {
+    profilePhotoLoadId++;
+    if (avatarCropState.imageUrl) URL.revokeObjectURL(avatarCropState.imageUrl);
+    Object.assign(avatarCropState, {
+      file: null, mimeType: null, image: null, imageUrl: null, zoom: 1, offsetX: 0, offsetY: 0,
+      renderedWidth: 0, renderedHeight: 0, left: 0, top: 0, scale: 1, drag: null,
+    });
+    avatarCropImage.removeAttribute('src');
+    saveProfilePhoto.disabled = true;
+    avatarZoom.value = '1';
+  }
+
+  function loadProfilePhoto(file) {
+    if (!file) return;
+    const extension = file.name.split('.').pop().toLowerCase();
+    const expectedType = extension === 'png' ? 'image/png' : ['jpg', 'jpeg'].includes(extension) ? 'image/jpeg' : null;
+    if (!expectedType || (file.type && file.type !== expectedType)) {
+      toast('Escolha uma imagem PNG ou JPEG (.png, .jpg ou .jpeg).', 'error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast('A imagem deve ter no máximo 10 MB.', 'error');
+      return;
+    }
+    const imageUrl = URL.createObjectURL(file);
+    const image = new Image();
+    const loadId = ++profilePhotoLoadId;
+    image.onload = () => {
+      if (loadId !== profilePhotoLoadId) {
+        URL.revokeObjectURL(imageUrl);
+        return;
+      }
+      if (avatarCropState.imageUrl) URL.revokeObjectURL(avatarCropState.imageUrl);
+      avatarCropState.file = file;
+      avatarCropState.mimeType = expectedType;
+      avatarCropState.image = image;
+      avatarCropState.imageUrl = imageUrl;
+      avatarCropState.zoom = 1;
+      avatarCropState.offsetX = 0;
+      avatarCropState.offsetY = 0;
+      avatarCropImage.src = imageUrl;
+      avatarZoom.value = '1';
+      saveProfilePhoto.disabled = false;
+      if (!profilePhotoDialog.open) profilePhotoDialog.showModal();
+      requestAnimationFrame(updateAvatarCrop);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      if (loadId === profilePhotoLoadId) toast('Não foi possível abrir essa imagem.', 'error');
+    };
+    image.src = imageUrl;
+  }
+
+  $('#me-avatar').addEventListener('click', () => profileMenuDialog.showModal());
+  $('#edit-profile-photo').addEventListener('click', () => {
+    profileMenuDialog.close();
+    profilePhotoInput.click();
+  });
+  profilePhotoInput.addEventListener('change', () => {
+    loadProfilePhoto(profilePhotoInput.files?.[0]);
+    profilePhotoInput.value = '';
+  });
+  changeProfilePhoto.addEventListener('click', () => {
+    if (!profilePhotoSaving) profilePhotoInput.click();
+  });
+  cancelProfilePhoto.addEventListener('click', () => {
+    if (!profilePhotoSaving) profilePhotoDialog.close();
+  });
+  profilePhotoDialog.addEventListener('cancel', (event) => {
+    if (profilePhotoSaving) event.preventDefault();
+  });
+  profilePhotoDialog.addEventListener('close', resetAvatarCrop);
+  avatarZoom.addEventListener('input', () => {
+    avatarCropState.zoom = Number(avatarZoom.value);
+    updateAvatarCrop();
+  });
+  avatarCrop.addEventListener('pointerdown', (event) => {
+    if (!avatarCropState.image) return;
+    event.preventDefault();
+    avatarCrop.setPointerCapture(event.pointerId);
+    avatarCropState.drag = {
+      pointerId: event.pointerId, x: event.clientX, y: event.clientY,
+      offsetX: avatarCropState.offsetX, offsetY: avatarCropState.offsetY,
+    };
+  });
+  avatarCrop.addEventListener('pointermove', (event) => {
+    const drag = avatarCropState.drag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    avatarCropState.offsetX = drag.offsetX + event.clientX - drag.x;
+    avatarCropState.offsetY = drag.offsetY + event.clientY - drag.y;
+    updateAvatarCrop();
+  });
+  const stopAvatarCropDrag = (event) => {
+    if (avatarCropState.drag?.pointerId === event.pointerId) avatarCropState.drag = null;
+  };
+  avatarCrop.addEventListener('pointerup', stopAvatarCropDrag);
+  avatarCrop.addEventListener('pointercancel', stopAvatarCropDrag);
+  window.addEventListener('resize', updateAvatarCrop);
+
+  saveProfilePhoto.addEventListener('click', async () => {
+    if (!avatarCropState.image || !state.me || saveProfilePhoto.disabled) return;
+    profilePhotoSaving = true;
+    saveProfilePhoto.disabled = true;
+    cancelProfilePhoto.disabled = true;
+    changeProfilePhoto.disabled = true;
+    saveProfilePhoto.textContent = 'Salvando…';
+    try {
+      const size = avatarCrop.clientWidth;
+      const sourceSize = size / avatarCropState.scale;
+      const sourceX = Math.max(0, Math.min(
+        avatarCropState.image.naturalWidth - sourceSize,
+        -avatarCropState.left / avatarCropState.scale,
+      ));
+      const sourceY = Math.max(0, Math.min(
+        avatarCropState.image.naturalHeight - sourceSize,
+        -avatarCropState.top / avatarCropState.scale,
+      ));
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Não foi possível preparar a imagem.');
+      context.drawImage(
+        avatarCropState.image, sourceX, sourceY, sourceSize, sourceSize,
+        0, 0, canvas.width, canvas.height,
+      );
+      const mimeType = avatarCropState.mimeType;
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, mimeType, 0.9));
+      if (!blob) throw new Error('Não foi possível preparar a imagem.');
+      const extension = mimeType === 'image/png' ? 'png' : 'jpg';
+      const response = await fetch('/api/profile/avatar', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${state.token}`,
+          'Content-Type': 'application/octet-stream',
+          'X-File-Name': encodeURIComponent(`avatar.${extension}`),
+        },
+        body: blob,
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Não foi possível salvar a foto de perfil.');
+      if (!result.user) throw new Error('O servidor não confirmou a atualização da foto.');
+      onUserUpdated(result.user);
+      profilePhotoDialog.close();
+      toast('Foto de perfil atualizada.');
+    } catch (err) {
+      toast(err.message || 'Não foi possível salvar a foto de perfil.', 'error');
+    } finally {
+      profilePhotoSaving = false;
+      saveProfilePhoto.textContent = 'Salvar foto';
+      cancelProfilePhoto.disabled = false;
+      changeProfilePhoto.disabled = false;
+      if (profilePhotoDialog.open) saveProfilePhoto.disabled = !avatarCropState.image;
+    }
+  });
 
   // Formatadores criados uma vez (toLocale*String monta um Intl novo a cada chamada).
   const TIME_FMT = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -230,6 +472,11 @@
   $('#logout').addEventListener('click', async () => {
     const token = state.token;
     leaveCall({ silent: true });
+    for (const request of [...avatarImageCache.values(), ...attachmentImageUrls.values()]) {
+      request.then((url) => { if (url) URL.revokeObjectURL(url); });
+    }
+    avatarImageCache.clear();
+    attachmentImageUrls.clear();
     storage.del('uvoz:token');
     state.socket && state.socket.disconnect();
     state.socket = null;
@@ -301,6 +548,7 @@
       renderMembers(); renderDms(); renderHeader();
     });
     socket.on('user:new', (u) => { state.users.set(u.id, u); userIdx = null; renderMembers(); });
+    socket.on('user:updated', onUserUpdated);
 
     socket.on('channel:created', (c) => { if (!channelById(c.id)) state.channels.push(c); renderChannels(); });
     socket.on('channel:deleted', ({ channelId }) => {
@@ -393,8 +641,7 @@
     document.documentElement.classList.remove('has-session');
     $('#me-name').textContent = state.me.displayName;
     $('#me-status').textContent = `@${state.me.username}`;
-    $('#me-avatar').replaceChildren(initials(state.me.displayName));
-    $('#me-avatar').style.background = state.me.color;
+    renderAvatar($('#me-avatar'), state.me);
     renderChannels(); renderDms(); renderMembers(); updateTitle();
 
     if (reconnecting && state.view && isValidView(state.view)) {
@@ -421,6 +668,25 @@
       [...state.unread.keys()].filter((k) => k !== viewKey()).slice(0, 4).forEach(prefetch);
       if (wantsNoiseAI() && window.UVozRTC.NoiseSuppressor.supported()) window.UVozRTC.preloadNoise();
     });
+  }
+
+  function onUserUpdated(user) {
+    const updatedUser = { ...state.users.get(user.id), ...user };
+    state.users.set(user.id, updatedUser);
+    userIdx = null;
+    if (state.me?.id === user.id) {
+      state.me = updatedUser;
+      $('#me-name').textContent = updatedUser.displayName;
+      $('#me-status').textContent = `@${updatedUser.username}`;
+      renderAvatar($('#me-avatar'), updatedUser);
+    }
+    renderChannels();
+    renderDms();
+    renderMembers();
+    renderHeader();
+    if (state.view?.type === 'voice') renderStage();
+    else if (state.view) renderMessagesKeepingScroll();
+    if (state.call) scheduleStageRender();
   }
 
   const idle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 1500));
@@ -729,6 +995,7 @@
   // Mensagens
   // -------------------------------------------------------------------------
   const box = $('#messages');
+  const attachmentImageUrls = new Map();
 
   const newConv = () => ({ list: [], hasMore: false, loading: false, loaded: false, stale: false, promise: null, queue: [] });
   const scopeOfKey = (key) => (key.startsWith('d:') ? { type: 'dm', id: Number(key.slice(2)) } : { type: 'channel', id: key.slice(2) });
@@ -926,13 +1193,25 @@
       };
       if (attachment.type.startsWith('image/')) {
         const image = el('img', { class: 'attachment-preview', alt: attachment.name, title: attachment.name });
-        image.addEventListener('click', download);
-        fetch(`/api/attachments/${encodeURIComponent(attachment.id)}`, {
-          headers: { Authorization: `Bearer ${state.token}` },
-        }).then((response) => {
-          if (!response.ok) throw new Error('Arquivo indisponível.');
-          return response.blob();
-        }).then((blob) => { image.src = URL.createObjectURL(blob); }).catch(() => {});
+        image.addEventListener('click', () => {
+          const src = image.getAttribute('src');
+          if (src) openImageViewer(src, attachment.name);
+        });
+        let imageUrl = attachmentImageUrls.get(attachment.id);
+        if (!imageUrl) {
+          imageUrl = fetch(`/api/attachments/${encodeURIComponent(attachment.id)}`, {
+            headers: { Authorization: `Bearer ${state.token}` },
+          }).then((response) => {
+            if (!response.ok) throw new Error('Arquivo indisponível.');
+            return response.blob();
+          }).then((blob) => URL.createObjectURL(blob)).catch((err) => {
+            attachmentImageUrls.delete(attachment.id);
+            console.error('[uvoz] erro carregando anexo de imagem:', err);
+            return null;
+          });
+          attachmentImageUrls.set(attachment.id, imageUrl);
+        }
+        imageUrl.then((url) => { if (url) image.src = url; });
         item.append(image);
       }
       item.append(el('button', { type: 'button', class: 'attachment-download', onclick: download },
@@ -954,7 +1233,7 @@
         messageBody(m), messageActions(m));
     }
     return el('div', { class: cls, dataset: { id: m.id } },
-      avatar({ displayName: name, color }),
+      avatar({ ...author, id: m.author.id, displayName: name, color }),
       el('div', { class: 'msg-body' },
         el('div', { class: 'msg-head' },
           el('strong', {
