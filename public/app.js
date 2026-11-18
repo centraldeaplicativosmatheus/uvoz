@@ -33,6 +33,7 @@
     screen: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
     trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
     edit: '<path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/>',
+    reply: '<path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-2"/>',
     expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     at: '<circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/>',
@@ -463,6 +464,7 @@
   function showLogin(message) {
     document.documentElement.classList.remove('has-session');
     state.me = null;
+    clearReplyComposer();
     $('#login').hidden = false;
     $('#app').hidden = true;
     if (message) $('#login-error').textContent = message;
@@ -472,6 +474,7 @@
   $('#logout').addEventListener('click', async () => {
     const token = state.token;
     leaveCall({ silent: true });
+    clearReplyComposer();
     for (const request of [...avatarImageCache.values(), ...attachmentImageUrls.values()]) {
       request.then((url) => { if (url) URL.revokeObjectURL(url); });
     }
@@ -610,6 +613,7 @@
     const reconnecting = !!state.me && state.me.id === data.me.id && !$('#app').hidden;
     if (lastUserId !== data.me.id) { // outra conta nesta aba: nada do estado anterior vale
       state.view = null; state.conv.clear(); state.divider.clear(); pendings.clear();
+      clearReplyComposer();
     }
     lastUserId = data.me.id;
     lastMarked.clear(); // um read:mark pode ter se perdido na queda; o servidor ignora repetições
@@ -680,6 +684,7 @@
       $('#me-status').textContent = `@${updatedUser.username}`;
       renderAvatar($('#me-avatar'), updatedUser);
     }
+    if (replyingTo?.author.id === user.id) renderReplyComposer();
     renderChannels();
     renderDms();
     renderMembers();
@@ -884,6 +889,7 @@
     closeMentionPopup();
     state.editingId = null;
     const key = viewKey();
+    if (view.type === 'voice' || (prevKey && prevKey !== key)) clearReplyComposer();
     if (prevKey && prevKey !== key) { state.divider.delete(prevKey); trimConv(prevKey); }
 
     if (view.type === 'voice') {
@@ -996,6 +1002,45 @@
   // -------------------------------------------------------------------------
   const box = $('#messages');
   const attachmentImageUrls = new Map();
+  function loadAttachmentImage(attachment, image) {
+    let imageUrl = attachmentImageUrls.get(attachment.id);
+    if (!imageUrl) {
+      imageUrl = fetch(`/api/attachments/${encodeURIComponent(attachment.id)}`, {
+        headers: { Authorization: `Bearer ${state.token}` },
+      }).then((response) => {
+        if (!response.ok) throw new Error('Arquivo indisponível.');
+        return response.blob();
+      }).then((blob) => URL.createObjectURL(blob)).catch((err) => {
+        attachmentImageUrls.delete(attachment.id);
+        console.error('[uvoz] erro carregando anexo de imagem:', err);
+        return null;
+      });
+      attachmentImageUrls.set(attachment.id, imageUrl);
+    }
+    imageUrl.then((url) => { if (url) image.src = url; });
+  }
+
+  function replyReferenceNode(message) {
+    if (!message) return null;
+    const user = state.users.get(message.author.id);
+    const authorName = user?.displayName || message.author.name;
+    const author = { ...user, id: message.author.id, displayName: authorName, color: user?.color || message.author.color };
+    const imageAttachment = message.attachments?.find((attachment) => attachment.type.startsWith('image/'));
+    const firstAttachment = message.attachments?.[0];
+    const excerpt = message.text?.trim()
+      || (imageAttachment ? imageAttachment.name : firstAttachment?.name)
+      || 'Mensagem sem texto';
+    const thumbnail = imageAttachment
+      ? el('img', { class: 'reply-thumbnail', alt: imageAttachment.name, loading: 'lazy' })
+      : null;
+    if (thumbnail) loadAttachmentImage(imageAttachment, thumbnail);
+    return el('div', { class: 'reply-reference' },
+      avatar(author, 'xs'),
+      el('div', { class: 'reply-reference-info' },
+        el('strong', { title: authorName }, authorName),
+        el('span', { class: 'reply-reference-text', title: excerpt }, excerpt)),
+      thumbnail);
+  }
 
   const newConv = () => ({ list: [], hasMore: false, loading: false, loaded: false, stale: false, promise: null, queue: [] });
   const scopeOfKey = (key) => (key.startsWith('d:') ? { type: 'dm', id: Number(key.slice(2)) } : { type: 'channel', id: key.slice(2) });
@@ -1136,16 +1181,25 @@
     && m.ts - prev.ts < 5 * 60 * 1000;
 
   function messageActions(m) {
-    if (m.author.id !== state.me.id) return null;
+    const isMine = m.author.id === state.me.id;
     return el('div', { class: 'msg-actions' },
-      m.text ? el('button', { class: 'icon-btn small', title: 'Editar', 'aria-label': 'Editar mensagem', onclick: () => startEdit(m.id) }, svg(ICONS.edit)) : null,
+      isMine && m.text ? el('button', { type: 'button', class: 'icon-btn small', title: 'Editar', 'aria-label': 'Editar mensagem', onclick: () => startEdit(m.id) }, svg(ICONS.edit)) : null,
       el('button', {
+        type: 'button', class: 'icon-btn small', title: 'Responder', 'aria-label': 'Responder mensagem',
+        onclick: () => {
+          replyingTo = m;
+          renderReplyComposer();
+          input.focus();
+        },
+      }, svg(ICONS.reply)),
+      isMine ? el('button', {
+        type: 'button',
         class: 'icon-btn small danger', title: 'Apagar', 'aria-label': 'Apagar mensagem',
         onclick: () => {
           if (!confirm('Apagar esta mensagem?')) return;
           state.socket.emit('message:delete', { id: m.id }, (res) => res?.error && toast(res.error, 'error'));
         },
-      }, svg(ICONS.trash)));
+      }, svg(ICONS.trash)) : null);
   }
 
   function messageBody(m) {
@@ -1168,8 +1222,10 @@
         if (e.key === 'Escape') { state.editingId = null; rerenderMessage(m.id); }
       });
       setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); ta.style.height = ta.scrollHeight + 'px'; }, 0);
-      return el('div', { class: 'msg-edit' }, ta,
-        el('small', { class: 'muted' }, 'Enter para salvar · Esc para cancelar'));
+      return el('div', { class: 'msg-content' },
+        m.replyTo ? replyReferenceNode(m.replyTo) : null,
+        el('div', { class: 'msg-edit' }, ta,
+          el('small', { class: 'muted' }, 'Enter para salvar · Esc para cancelar')));
     }
     const text = m.text ? el('div', { class: 'msg-text' }, richText(m.text, isChannel),
       m.editedTs ? el('small', { class: 'edited muted', title: fmtTime(m.editedTs) }, ' (editado)') : null) : null;
@@ -1197,28 +1253,16 @@
           const src = image.getAttribute('src');
           if (src) openImageViewer(src, attachment.name);
         });
-        let imageUrl = attachmentImageUrls.get(attachment.id);
-        if (!imageUrl) {
-          imageUrl = fetch(`/api/attachments/${encodeURIComponent(attachment.id)}`, {
-            headers: { Authorization: `Bearer ${state.token}` },
-          }).then((response) => {
-            if (!response.ok) throw new Error('Arquivo indisponível.');
-            return response.blob();
-          }).then((blob) => URL.createObjectURL(blob)).catch((err) => {
-            attachmentImageUrls.delete(attachment.id);
-            console.error('[uvoz] erro carregando anexo de imagem:', err);
-            return null;
-          });
-          attachmentImageUrls.set(attachment.id, imageUrl);
-        }
-        imageUrl.then((url) => { if (url) image.src = url; });
+        loadAttachmentImage(attachment, image);
         item.append(image);
       }
       item.append(el('button', { type: 'button', class: 'attachment-download', onclick: download },
         `${attachment.name} · ${(attachment.size / (1024 * 1024)).toFixed(2)} MB`));
       return item;
     });
-    return el('div', { class: 'msg-content' }, text,
+    return el('div', { class: 'msg-content' },
+      m.replyTo ? replyReferenceNode(m.replyTo) : null,
+      text,
       attachments.length ? el('div', { class: 'message-attachments' }, attachments) : null);
   }
 
@@ -1334,7 +1378,7 @@
     return true;
   }
 
-  function addPending(scope, text) {
+  function addPending(scope, text, replyTo) {
     const key = keyOf(scope);
     const conv = state.conv.get(key);
     const list = pendings.get(key) || [];
@@ -1342,6 +1386,7 @@
     const m = {
       id: `p${Date.now()}${list.length}`, scope, text, ts: Date.now(), editedTs: null, mentions: [], mentionsEveryone: false,
       author: { id: state.me.id, name: state.me.displayName, color: state.me.color },
+      replyTo: replyTo || null,
     };
     const node = messageNode(m, isGrouped(prev, m));
     node.classList.add('pending');
@@ -1411,19 +1456,42 @@
     if (!conv) return;
     conv.queue = conv.queue.map((x) => (x.id === m.id ? m : x));
     const idx = conv.list.findIndex((x) => x.id === m.id);
-    if (idx === -1) return;
-    conv.list[idx] = m;
-    if (viewKey() === key && state.editingId !== m.id) rerenderMessage(m.id);
+    if (idx !== -1) conv.list[idx] = m;
+    const referenced = [];
+    for (const candidate of [...conv.list, ...conv.queue]) {
+      if (candidate.replyTo?.id === m.id) {
+        candidate.replyTo = m;
+        if (!referenced.includes(candidate.id)) referenced.push(candidate.id);
+      }
+    }
+    if (replyingTo?.id === m.id) {
+      replyingTo = m;
+      renderReplyComposer();
+    }
+    if (idx === -1 && !referenced.length) return;
+    if (viewKey() === key) {
+      if (idx !== -1 && state.editingId !== m.id) rerenderMessage(m.id);
+      for (const id of referenced) rerenderMessage(id);
+    }
   }
 
   function onMessageDeleted({ id, scope }) {
     const key = keyOf(scope);
     const conv = state.conv.get(key);
     if (!conv) return;
+    const referenced = [];
+    for (const message of [...conv.list, ...conv.queue]) {
+      if (message.replyTo?.id === id) {
+        message.replyTo = null;
+        if (!referenced.includes(message.id)) referenced.push(message.id);
+      }
+    }
     conv.queue = conv.queue.filter((x) => x.id !== id);
     conv.list = conv.list.filter((x) => x.id !== id);
+    if (replyingTo?.id === id) clearReplyComposer();
     if (state.editingId === id) state.editingId = null;
     if (viewKey() !== key) return;
+    for (const messageId of referenced) rerenderMessage(messageId);
     const node = box.querySelector(msgSel(id));
     if (!node) return;
     const next = node.nextElementSibling;
@@ -1445,9 +1513,11 @@
 
   // Composer
   const input = $('#composer-input');
+  const replyPreview = $('#reply-preview');
   const fileInput = $('#attachment-input');
   const attachmentList = $('#attachment-list');
   const stagedAttachments = [];
+  let replyingTo = null;
   const MAX_MESSAGE_ATTACHMENTS = 10 * 1024 * 1024;
   const MAX_MESSAGE_IMAGES = 5;
   const ALLOWED_ATTACHMENT_EXTENSIONS = new Set([
@@ -1457,6 +1527,24 @@
   ]);
   let sendingMessage = false;
   let lastTypingSent = 0;
+  function renderReplyComposer() {
+    replyPreview.hidden = !replyingTo;
+    if (!replyingTo) {
+      replyPreview.replaceChildren();
+      return;
+    }
+    replyPreview.replaceChildren(
+      replyReferenceNode(replyingTo),
+      el('button', {
+        type: 'button', class: 'icon-btn small', title: 'Cancelar resposta', 'aria-label': 'Cancelar resposta',
+        onclick: clearReplyComposer,
+      }, svg(ICONS.close)),
+    );
+  }
+  function clearReplyComposer() {
+    replyingTo = null;
+    renderReplyComposer();
+  }
   function formatFileSize(size) {
     return size < 1024 * 1024 ? `${(size / 1024).toFixed(0)} KB` : `${(size / (1024 * 1024)).toFixed(2)} MB`;
   }
@@ -1613,21 +1701,27 @@
     if (!state.socket?.connected) return toast('Sem conexão no momento. Tente de novo em instantes.', 'error');
     const key = keyOf(scope);
     const files = stagedAttachments.slice();
+    const replyTo = replyingTo;
     sendingMessage = true;
     $('#attach-files').disabled = true;
     renderStagedAttachments();
-    const pend = text ? addPending(scope, text) : null;
+    const pend = text ? addPending(scope, text, replyTo) : null;
     try {
       const attachmentIds = [];
       for (const item of files) attachmentIds.push(await uploadAttachment(item));
       const result = await new Promise((resolve) => {
-        state.socket.timeout(15000).emit('message:send', { scope, text, attachmentIds }, (err, res) => resolve({ err, res }));
+        state.socket.timeout(15000).emit(
+          'message:send',
+          { scope, text, attachmentIds, replyToId: replyTo?.id || null },
+          (err, res) => resolve({ err, res }),
+        );
       });
       if (result.err || result.res?.error) {
         if (pend) dropPending(key, (p) => p === pend);
         throw new Error(result.err ? 'A mensagem não foi enviada. Verifique sua conexão.' : result.res.error);
       }
       if (result.res?.message) onMessageNew(result.res.message);
+      if (replyingTo?.id === replyTo?.id) clearReplyComposer();
       stagedAttachments.splice(0, files.length);
       renderStagedAttachments();
       if (input.value.trim() === text) {

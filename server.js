@@ -493,8 +493,12 @@ io.on('connection', async (socket) => {
     if (!scope) return { error: 'Conversa não encontrada.' };
     const text = sanitizeText(p.text, MAX_MESSAGE_LENGTH);
     const attachmentIds = Array.isArray(p.attachmentIds) ? p.attachmentIds : [];
+    const replyToId = p.replyToId == null ? null : Number(p.replyToId);
+    if (p.replyToId != null && (!Number.isSafeInteger(replyToId) || replyToId <= 0)) {
+      return { error: 'Mensagem respondida inválida.' };
+    }
     if (!text && !attachmentIds.length) return { error: 'Mensagem vazia.' };
-    const message = await store.createMessage(scope, userId, text, attachmentIds);
+    const message = await store.createMessage(scope, userId, text, attachmentIds, replyToId);
     if (message.error) return message;
     if (scope.type === 'dm') {
       for (const member of store.dmMembers(scope.dm)) {
