@@ -517,19 +517,25 @@
     const button = $('#confirm-forgot-password');
     button.disabled = true;
     forgotPasswordMessage.textContent = '';
+    const controller = new AbortController();
+    const requestTimeout = setTimeout(() => controller.abort(), 20_000);
     try {
       const response = await fetch('/api/password-reset/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
+        signal: controller.signal,
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Não foi possível solicitar a redefinição.');
       forgotPasswordDialog.close();
       toast(result.message || 'Se existir uma conta com esse email, enviaremos o link.');
     } catch (err) {
-      forgotPasswordMessage.textContent = err.message || 'Não foi possível solicitar a redefinição.';
+      forgotPasswordMessage.textContent = err.name === 'AbortError'
+        ? 'O servidor de email demorou para responder. Tente novamente mais tarde.'
+        : (err.message || 'Não foi possível solicitar a redefinição.');
     } finally {
+      clearTimeout(requestTimeout);
       button.disabled = false;
     }
   });

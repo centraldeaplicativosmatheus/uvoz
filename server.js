@@ -69,6 +69,7 @@ const SMTP_USER = String(process.env.SMTP_USER || '').trim();
 const SMTP_PASS = String(process.env.SMTP_PASS || '');
 const SMTP_FROM = String(process.env.SMTP_FROM || SMTP_USER || '').trim();
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+const SMTP_TIMEOUT_MS = 15 * 1000;
 
 function parseIceServers() {
   const fallback = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
@@ -214,6 +215,9 @@ function smtpTransport() {
     port: SMTP_PORT,
     secure: SMTP_SECURE,
     auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
   });
 }
 
