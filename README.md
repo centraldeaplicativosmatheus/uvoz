@@ -93,17 +93,18 @@ Acesse http://localhost:3000, clique em **Criar conta** e use o código de acess
 | `TURN_URLS` | vazio | URLs do TURN separadas por vírgula |
 | `TURN_TTL_SECONDS` | `43200` | Validade das credenciais TURN (12 h) |
 | `DATA_FILE` | `./data/db.json` | Arquivo da versão antiga, importado uma única vez se existir |
-| `UPLOAD_DIR` | `./data/uploads` | Armazenamento privado dos anexos e das fotos de perfil (`avatars/`) |
+| `UPLOAD_DIR` | `./data/uploads` | Armazenamento privado dos anexos enviados |
 
 Veja `.env.example`.
 
 Mensagens em canais de texto e DMs aceitam até cinco imagens e arquivos como `.doc`, `.xlsx`,
 `.ppt` e `.txt`, além dos formatos de anexos já suportados. O limite total é de 10 MB por mensagem.
 Fotos de perfil aceitam PNG e JPEG de até 10 MB; o usuário pode ajustar um recorte quadrado antes de
-salvar. Anexos e fotos são exibidos somente para usuários autenticados. O diretório `UPLOAD_DIR`
-precisa ser persistente e incluído nos backups, pois os backups MySQL não contêm o conteúdo dos
-arquivos. Em instalações atrás do Nginx, permita requisições de pelo menos 10 MB
-(`client_max_body_size 10m;`).
+salvar. As fotos são armazenadas no MySQL e incluídas nos backups do banco; anexos continuam em
+`UPLOAD_DIR`, que precisa ser persistente e incluído em backups separados. Arquivos e fotos são
+exibidos somente para usuários autenticados. Fotos antigas que ainda existirem em
+`UPLOAD_DIR/avatars` são migradas para o banco quando forem carregadas. Em instalações atrás do
+Nginx, permita requisições de pelo menos 10 MB (`client_max_body_size 10m;`).
 
 ## Colocando em produção
 

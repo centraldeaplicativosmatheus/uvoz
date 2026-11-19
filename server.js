@@ -268,24 +268,9 @@ app.post('/api/profile/avatar', express.raw({ type: 'application/octet-stream', 
   if (!mimeType || !validSignature) return res.status(400).json({ error: 'Use uma imagem PNG ou JPEG válida.' });
   if (req.body.length > MAX_PROFILE_AVATAR_SIZE) return res.status(413).json({ error: 'A imagem deve ter no máximo 10 MB.' });
 
-  const storageName = crypto.randomUUID();
-  const filePath = path.join(AVATAR_DIR, storageName);
-  await fs.promises.mkdir(AVATAR_DIR, { recursive: true });
-  await fs.promises.writeFile(filePath, req.body, { flag: 'wx' });
-  let result;
-  try {
-    const updatedAt = Math.max(Date.now(), Number(store.users.get(userId).avatarVersion || 0) + 1);
-    result = await store.setUserAvatar(userId, { storageName, mimeType, updatedAt });
-  } catch (err) {
-    await fs.promises.unlink(filePath).catch((unlinkError) => {
-      if (unlinkError.code !== 'ENOENT') console.error('[uvoz] erro removendo avatar sem registro:', unlinkError);
-    });
-    throw err;
-  }
+  const updatedAt = Math.max(Date.now(), Number(store.users.get(userId).avatarVersion || 0) + 1);
+  const result = await store.setUserAvatar(userId, { data: req.body, mimeType, updatedAt });
   if (!result) {
-    await fs.promises.unlink(filePath).catch((err) => {
-      if (err.code !== 'ENOENT') console.error('[uvoz] erro removendo avatar não associado:', err);
-    });
     return res.status(404).json({ error: 'Usuário não encontrado.' });
   }
   if (result.previousStorageName) {
@@ -308,8 +293,7 @@ app.get('/api/users/:id/avatar', asyncRoute(async (req, res) => {
   const targetId = Number(req.params.id);
   if (!Number.isSafeInteger(targetId) || targetId <= 0) return res.status(404).json({ error: 'Foto não encontrada.' });
   const avatar = await store.getUserAvatar(targetId);
-  if (!avatar || !/^[0-9a-f-]{36}$/i.test(avatar.storageName)
-    || !['image/png', 'image/jpeg'].includes(avatar.mimeType)) {
+  if (!avatar || !['image/png', 'image/jpeg'].includes(avatar.mimeType)) {
     return res.status(404).json({ error: 'Foto não encontrada.' });
   }
   res.set({
@@ -317,12 +301,33 @@ app.get('/api/users/:id/avatar', asyncRoute(async (req, res) => {
     'Cache-Control': 'private, max-age=31536000, immutable',
     'Content-Type': avatar.mimeType,
   });
-  res.sendFile(path.join(AVATAR_DIR, avatar.storageName), (err) => {
-    if (err && !res.headersSent) {
-      if (err.code !== 'ENOENT') console.error('[uvoz] erro enviando foto de perfil:', err);
-      res.status(err.code === 'ENOENT' ? 404 : 500).json({ error: 'Não foi possível carregar a foto.' });
+  if (Buffer.isBuffer(avatar.data)) return res.send(avatar.data);
+  if (!avatar.storageName || !/^[0-9a-f-]{36}$/i.test(avatar.storageName)) {
+    return res.status(404).json({ error: 'Foto não encontrada.' });
+  }
+  let legacyData;
+  try {
+    const filePath = path.join(AVATAR_DIR, avatar.storageName);
+    const stat = await fs.promises.stat(filePath);
+    if (stat.size > MAX_PROFILE_AVATAR_SIZE) {
+      console.error('[uvoz] avatar legado excede o limite permitido:', avatar.storageName);
+      return res.status(500).json({ error: 'Não foi possível carregar a foto.' });
     }
-  });
+    legacyData = await fs.promises.readFile(filePath);
+  } catch (err) {
+    if (err.code === 'ENOENT') return res.status(404).json({ error: 'Foto não encontrada.' });
+    throw err;
+  }
+  if (!legacyData.length) return res.status(404).json({ error: 'Foto não encontrada.' });
+  const migrated = await store.persistLegacyAvatar(targetId, avatar.storageName, legacyData);
+  if (!migrated) {
+    const refreshedAvatar = await store.getUserAvatar(targetId);
+    if (Buffer.isBuffer(refreshedAvatar?.data)) {
+      res.set('Content-Type', refreshedAvatar.mimeType);
+      return res.send(refreshedAvatar.data);
+    }
+  }
+  res.send(legacyData);
 }));
 
 app.post('/api/attachments', express.raw({ type: 'application/octet-stream', limit: MAX_MESSAGE_ATTACHMENTS }), asyncRoute(async (req, res) => {
