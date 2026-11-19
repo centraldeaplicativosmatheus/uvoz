@@ -17,7 +17,7 @@ const { loadDotEnv } = require('./lib/env');
 loadDotEnv(__dirname);
 
 const { createPool, migrate } = require('./lib/db');
-const { Store, scopeKey } = require('./lib/store');
+const { Store, scopeKey, ATTACHMENT_RETENTION_MS } = require('./lib/store');
 const auth = require('./lib/auth');
 
 // ---------------------------------------------------------------------------
@@ -33,7 +33,6 @@ const MAX_MESSAGE_ATTACHMENTS = 10 * 1024 * 1024;
 const MAX_PROFILE_AVATAR_SIZE = 10 * 1024 * 1024;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'data', 'uploads');
 const AVATAR_DIR = path.join(UPLOAD_DIR, 'avatars');
-const ATTACHMENT_RETENTION_MS = 30 * 24 * 3600 * 1000;
 const ATTACHMENT_TYPES = {
   txt: { mime: 'text/plain' },
   csv: { mime: 'text/csv' },
@@ -393,18 +392,10 @@ app.post('/api/attachments', express.raw({ type: 'application/octet-stream', lim
 
   const id = crypto.randomUUID();
   const storageName = crypto.randomUUID();
-  const filePath = path.join(UPLOAD_DIR, storageName);
-  await fs.promises.mkdir(UPLOAD_DIR, { recursive: true });
-  await fs.promises.writeFile(filePath, req.body, { flag: 'wx' });
-  try {
-    await store.createPendingAttachment({
-      id, storageName, uploaderId: userId, originalName,
-      mimeType: type.mime, size: req.body.length,
-    });
-  } catch (err) {
-    await fs.promises.unlink(filePath).catch(() => {});
-    throw err;
-  }
+  await store.createPendingAttachment({
+    id, storageName, uploaderId: userId, originalName,
+    mimeType: type.mime, size: req.body.length, data: req.body,
+  });
   res.status(201).json({ attachment: { id, name: originalName, size: req.body.length, type: type.mime } });
 }));
 
@@ -416,11 +407,42 @@ app.get('/api/attachments/:id', asyncRoute(async (req, res) => {
   const message = await store.getMessage(attachment.message_id);
   const scope = message && await resolveScope(message.message.scope, userId);
   if (!scope) return res.status(404).json({ error: 'Arquivo não encontrado.' });
-  const filePath = path.join(UPLOAD_DIR, attachment.storage_name);
   res.set('X-Content-Type-Options', 'nosniff');
-  res.download(filePath, attachment.original_name, (err) => {
-    if (err && !res.headersSent) res.status(err.code === 'ENOENT' ? 404 : 500).json({ error: 'Não foi possível baixar o arquivo.' });
-  });
+  if (Buffer.isBuffer(attachment.file_data)) {
+    res.attachment(attachment.original_name);
+    res.set('Content-Type', attachment.mime_type);
+    return res.send(attachment.file_data);
+  }
+  if (!attachment.storage_name || !/^[0-9a-f-]{36}$/i.test(attachment.storage_name)) {
+    console.error('[uvoz] anexo sem dados armazenados e com identificador legado inválido:', attachment.id);
+    return res.status(500).json({ error: 'Não foi possível carregar o arquivo.' });
+  }
+  const filePath = path.join(UPLOAD_DIR, attachment.storage_name);
+  let data;
+  try {
+    const stat = await fs.promises.stat(filePath);
+    if (stat.size > MAX_MESSAGE_ATTACHMENTS) {
+      console.error('[uvoz] anexo legado excede o limite permitido:', attachment.id);
+      return res.status(500).json({ error: 'Não foi possível carregar o arquivo.' });
+    }
+    data = await fs.promises.readFile(filePath);
+  } catch (err) {
+    if (err.code === 'ENOENT') return res.status(404).json({ error: 'Arquivo não encontrado.' });
+    throw err;
+  }
+  const migrated = await store.persistLegacyAttachmentData(attachment.id, data, Number(attachment.created_at));
+  if (!migrated) {
+    const refreshedAttachment = await store.getAttachment(attachment.id);
+    if (!refreshedAttachment) return res.status(404).json({ error: 'Arquivo não encontrado.' });
+    if (Buffer.isBuffer(refreshedAttachment.file_data)) {
+      res.attachment(refreshedAttachment.original_name);
+      res.set('Content-Type', refreshedAttachment.mime_type);
+      return res.send(refreshedAttachment.file_data);
+    }
+  }
+  res.attachment(attachment.original_name);
+  res.set('Content-Type', attachment.mime_type);
+  return res.send(data);
 }));
 
 // ---------------------------------------------------------------------------
