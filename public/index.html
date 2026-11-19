@@ -39,7 +39,7 @@
         <input id="auth-username" maxlength="32" placeholder="ex.: matheus.macedo" autocomplete="username" autocapitalize="none" spellcheck="false" />
       </label>
       <label class="only-register">
-        <span>Email de login</span>
+        <span>Email (opcional)</span>
         <input id="auth-email" type="email" maxlength="255" placeholder="voce@unicopag.com" autocomplete="email" />
       </label>
       <label>
@@ -60,8 +60,20 @@
     <form id="forgot-password-form" method="dialog">
       <h3>Redefinir senha</h3>
       <label>
-        <span>Informe seu email de login</span>
-        <input id="forgot-password-email" type="email" maxlength="255" required autocomplete="email" placeholder="voce@unicopag.com" />
+        <span>Usuário UVoz</span>
+        <input id="forgot-password-username" maxlength="32" required autocomplete="username" placeholder="seu.usuario" />
+      </label>
+      <label>
+        <span>Código mestre</span>
+        <input id="forgot-password-master-code" type="password" maxlength="200" required autocomplete="off" />
+      </label>
+      <label>
+        <span>Nova senha</span>
+        <input id="forgot-password-password" type="password" minlength="8" maxlength="200" required autocomplete="new-password" />
+      </label>
+      <label>
+        <span>Confirmar nova senha</span>
+        <input id="forgot-password-confirmation" type="password" minlength="8" maxlength="200" required autocomplete="new-password" />
       </label>
       <p id="forgot-password-message" class="login-error" role="alert"></p>
       <div class="dialog-actions">

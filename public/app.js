@@ -495,47 +495,57 @@
 
   const forgotPasswordDialog = $('#forgot-password-dialog');
   const forgotPasswordForm = $('#forgot-password-form');
-  const forgotPasswordEmail = $('#forgot-password-email');
+  const forgotPasswordUsername = $('#forgot-password-username');
+  const forgotPasswordMasterCode = $('#forgot-password-master-code');
+  const forgotPasswordPassword = $('#forgot-password-password');
+  const forgotPasswordConfirmation = $('#forgot-password-confirmation');
   const forgotPasswordMessage = $('#forgot-password-message');
   $('#forgot-password').addEventListener('click', () => {
-    forgotPasswordEmail.value = '';
+    forgotPasswordUsername.value = '';
+    forgotPasswordMasterCode.value = '';
+    forgotPasswordPassword.value = '';
+    forgotPasswordConfirmation.value = '';
     forgotPasswordMessage.textContent = '';
     forgotPasswordDialog.showModal();
   });
   $('#cancel-forgot-password').addEventListener('click', () => forgotPasswordDialog.close());
   forgotPasswordDialog.addEventListener('close', () => {
-    forgotPasswordEmail.value = '';
+    forgotPasswordUsername.value = '';
+    forgotPasswordMasterCode.value = '';
+    forgotPasswordPassword.value = '';
+    forgotPasswordConfirmation.value = '';
     forgotPasswordMessage.textContent = '';
   });
   forgotPasswordForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = forgotPasswordEmail.value.trim();
-    if (!email) {
-      forgotPasswordMessage.textContent = 'Informe seu email de login.';
+    const username = forgotPasswordUsername.value.trim().toLowerCase();
+    const masterCode = forgotPasswordMasterCode.value;
+    const password = forgotPasswordPassword.value;
+    const confirmation = forgotPasswordConfirmation.value;
+    if (!username || !masterCode) {
+      forgotPasswordMessage.textContent = 'Informe o usuário e o código mestre.';
+      return;
+    }
+    if (password !== confirmation) {
+      forgotPasswordMessage.textContent = 'As duas senhas devem ser iguais.';
       return;
     }
     const button = $('#confirm-forgot-password');
     button.disabled = true;
     forgotPasswordMessage.textContent = '';
-    const controller = new AbortController();
-    const requestTimeout = setTimeout(() => controller.abort(), 20_000);
     try {
-      const response = await fetch('/api/password-reset/request', {
+      const response = await fetch('/api/password-reset/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-        signal: controller.signal,
+        body: JSON.stringify({ username, masterCode, password, confirmation }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Não foi possível solicitar a redefinição.');
       forgotPasswordDialog.close();
-      toast(result.message || 'Se existir uma conta com esse email, enviaremos o link.');
+      toast(result.message || 'Senha redefinida com sucesso.');
     } catch (err) {
-      forgotPasswordMessage.textContent = err.name === 'AbortError'
-        ? 'O servidor de email demorou para responder. Tente novamente mais tarde.'
-        : (err.message || 'Não foi possível solicitar a redefinição.');
+      forgotPasswordMessage.textContent = err.message || 'Não foi possível redefinir a senha.';
     } finally {
-      clearTimeout(requestTimeout);
       button.disabled = false;
     }
   });

@@ -12,7 +12,6 @@ const http = require('http');
 const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
-const nodemailer = require('nodemailer');
 
 const { loadDotEnv } = require('./lib/env');
 loadDotEnv(__dirname);
@@ -61,15 +60,7 @@ const ATTACHMENT_TYPES = {
   mkv: { mime: 'video/x-matroska', video: true },
 };
 const RESERVED_USERNAMES = new Set(['todos', 'everyone', 'here', 'aqui', 'admin', 'sistema', 'uvoz']);
-const PUBLIC_URL = String(process.env.PUBLIC_URL || process.env.APP_URL || '').replace(/\/+$/, '');
-const SMTP_HOST = String(process.env.SMTP_HOST || '').trim();
-const SMTP_PORT = Number(process.env.SMTP_PORT) || 587;
-const SMTP_SECURE = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true';
-const SMTP_USER = String(process.env.SMTP_USER || '').trim();
-const SMTP_PASS = String(process.env.SMTP_PASS || '');
-const SMTP_FROM = String(process.env.SMTP_FROM || SMTP_USER || '').trim();
-const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
-const SMTP_TIMEOUT_MS = 15 * 1000;
+const PASSWORD_RESET_MASTER_CODE = String(process.env.PASSWORD_RESET_MASTER_CODE || '');
 
 function parseIceServers() {
   const fallback = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
@@ -205,43 +196,6 @@ app.get('/health', asyncRoute(async (_req, res) => {
 
 app.get('/api/config', (_req, res) => res.json({ requiresAccessCode: !!ACCESS_CODE }));
 
-const resetRequestByIp = new auth.RateLimiter(5, 60 * 60 * 1000);
-const resetRequestByEmail = new auth.RateLimiter(3, 60 * 60 * 1000);
-
-function smtpTransport() {
-  if (!SMTP_HOST) return null;
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_SECURE,
-    auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
-    connectionTimeout: SMTP_TIMEOUT_MS,
-    greetingTimeout: SMTP_TIMEOUT_MS,
-    socketTimeout: SMTP_TIMEOUT_MS,
-  });
-}
-
-function resetPasswordPage(valid) {
-  const body = valid ? `
-    <main class="reset-card">
-      <div class="reset-logo">U</div>
-      <h1>Redefinir senha</h1>
-      <form id="reset-form">
-        <label>Nova senha<input id="reset-password" type="password" minlength="8" maxlength="200" required autocomplete="new-password"></label>
-        <label>Confirmar nova senha<input id="reset-confirmation" type="password" minlength="8" maxlength="200" required autocomplete="new-password"></label>
-        <p id="reset-error" role="alert"></p>
-        <button type="submit" class="reset-button">Confirmar senha</button>
-      </form>
-    </main>` : `
-    <main class="reset-card"><div class="reset-logo">U</div><h1>Link inválido</h1><p>Este link expirou ou já foi utilizado.</p></main>`;
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UVoz · Redefinir senha</title><style>
-    *{box-sizing:border-box}body{margin:0;min-height:100dvh;display:grid;place-items:center;padding:16px;background:#1e1f22;color:#f2f3f5;font:16px/1.4 "Segoe UI",Arial,sans-serif}.reset-card{width:min(420px,100%);display:grid;gap:14px;padding:32px;border-radius:12px;background:#313338}.reset-logo{display:grid;place-items:center;width:64px;height:64px;margin:auto;border-radius:18px;background:#5865f2;font-size:32px;font-weight:800}h1{text-align:center;margin:0}form{display:grid;gap:14px}label{display:grid;gap:6px;color:#b5bac1;font-size:13px;font-weight:700}input{width:100%;border:0;border-radius:6px;padding:11px 12px;background:#383a40;color:#fff;outline:none}input:focus{box-shadow:0 0 0 2px #5865f2}.reset-button{border:0;border-radius:6px;padding:12px;background:#5865f2;color:#fff;font-weight:700;cursor:pointer}#reset-error{min-height:20px;margin:0;color:#fa777c}
-  </style></head><body>${body}<script>
-    const form=document.getElementById('reset-form');
-    if(form){form.addEventListener('submit',async(event)=>{event.preventDefault();const password=document.getElementById('reset-password').value;const confirmation=document.getElementById('reset-confirmation').value;const error=document.getElementById('reset-error');error.textContent='';if(password!==confirmation){error.textContent='As duas senhas devem ser iguais.';return}if(password.length<8){error.textContent='A senha deve ter pelo menos 8 caracteres.';return}const button=form.querySelector('button');button.disabled=true;try{const response=await fetch('/api/password-reset/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:new URLSearchParams(location.search).get('token'),password,confirmation})});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||'Não foi possível redefinir a senha.');document.querySelector('.reset-card').innerHTML='<div class="reset-logo">U</div><h1>Senha redefinida</h1><p>Você já pode acessar o UVoz com a nova senha.</p><p><a href="/" style="color:#00a8fc">Voltar ao UVoz</a></p>'}catch(err){error.textContent=err.message}finally{button.disabled=false}})}
-  </script></body></html>`;
-}
-
 app.post('/api/register', asyncRoute(async (req, res) => {
   const ip = clientIp(req);
   if (registerByIp.blocked(ip)) return res.status(429).json({ error: 'Muitas tentativas. Aguarde um pouco.' });
@@ -259,7 +213,7 @@ app.post('/api/register', asyncRoute(async (req, res) => {
   }
   if (RESERVED_USERNAMES.has(username)) return res.status(400).json({ error: 'Esse nome de usuário é reservado.' });
   if (!displayName) return res.status(400).json({ error: 'Informe seu nome.' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Informe um email válido.' });
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Informe um email válido.' });
   if (password.length < 8 || password.length > 200) return res.status(400).json({ error: 'A senha deve ter pelo menos 8 caracteres.' });
   if (store.usernames.has(username)) return res.status(409).json({ error: 'Esse usuário já existe.' });
 
@@ -298,66 +252,28 @@ app.post('/api/login', asyncRoute(async (req, res) => {
   res.json({ token, user: store.publicUser(row) });
 }));
 
-app.post('/api/password-reset/request', asyncRoute(async (req, res) => {
-  const ip = clientIp(req);
-  const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 255);
-  if (resetRequestByIp.blocked(ip) || resetRequestByEmail.blocked(email)) {
-    return res.status(429).json({ error: 'Muitas solicitações. Aguarde antes de tentar novamente.' });
-  }
-  resetRequestByIp.hit(ip);
-  resetRequestByEmail.hit(email);
-
-  const genericMessage = 'Se existir uma conta com esse email, enviaremos um link para redefinir a senha.';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.json({ ok: true, message: genericMessage });
-  const user = await store.findUserByEmail(email);
-  if (!user) return res.json({ ok: true, message: genericMessage });
-
-  if (!SMTP_HOST) {
-    console.error('[uvoz] redefinição solicitada, mas SMTP_HOST não está configurado');
-    return res.status(503).json({ error: 'O envio de email não está configurado no servidor.' });
-  }
-  const token = await store.createPasswordResetToken(user.id);
-  const baseUrl = PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
-  const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
-  const transport = smtpTransport();
-  await transport.sendMail({
-    from: SMTP_FROM,
-    to: email,
-    subject: 'UVoz Unicopag - Redefinição de Senha',
-    text: `Clique no link informado para redefinir sua senha de acesso:\n${resetUrl}`,
-    html: `
-      <div style="font-family:Segoe UI,Arial,sans-serif;color:#202124">
-        <h2>Redefinição de senha — UVoz Unicopag</h2>
-        <p><a href="${resetUrl}" style="display:inline-block;padding:12px 18px;background:#5865f2;color:#fff;text-decoration:none;border-radius:6px">Redefinir senha</a></p>
-        <p>Clique no link informado para redefinir sua senha de acesso.</p>
-      </div>`,
-  });
-  return res.json({ ok: true, message: genericMessage });
-}));
-
-app.get('/reset-password', asyncRoute(async (req, res) => {
-  const token = String(req.query.token || '');
-  const reset = await store.getPasswordResetUser(token);
-  if (!reset) {
-    res.status(400).send(resetPasswordPage(false));
-    return;
-  }
-  res.set('Cache-Control', 'no-store').send(resetPasswordPage(true));
-}));
+const resetPasswordByIp = new auth.RateLimiter(5, 60 * 60 * 1000);
 
 app.post('/api/password-reset/confirm', asyncRoute(async (req, res) => {
-  const token = String(req.body?.token || '');
+  const ip = clientIp(req);
+  if (resetPasswordByIp.blocked(ip)) return res.status(429).json({ error: 'Muitas tentativas. Aguarde antes de tentar novamente.' });
+  resetPasswordByIp.hit(ip);
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  const masterCode = String(req.body?.masterCode || '');
   const password = String(req.body?.password || '');
   const confirmation = String(req.body?.confirmation || '');
+  if (!PASSWORD_RESET_MASTER_CODE) return res.status(503).json({ error: 'A recuperação de senha não está configurada no servidor.' });
+  if (!username || !masterCode) return res.status(400).json({ error: 'Informe o usuário e o código mestre.' });
+  if (masterCode !== PASSWORD_RESET_MASTER_CODE) return res.status(401).json({ error: 'Código mestre incorreto.' });
   if (!password || password !== confirmation) return res.status(400).json({ error: 'As duas senhas devem ser iguais.' });
   if (password.length < 8 || password.length > 200) return res.status(400).json({ error: 'A senha deve ter pelo menos 8 caracteres.' });
-  const reset = await store.getPasswordResetUser(token);
-  if (!reset) return res.status(400).json({ error: 'Este link é inválido ou expirou.' });
-  const samePassword = await auth.verifyPassword(password, reset.passwordHash);
-  if (samePassword) return res.status(400).json({ error: 'A nova senha deve ser diferente da senha anterior.' });
+  const user = await store.findUserForLogin(username);
+  if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+  if (await auth.verifyPassword(password, user.password_hash)) {
+    return res.status(400).json({ error: 'A nova senha deve ser diferente da senha anterior.' });
+  }
   const passwordHash = await auth.hashPassword(password);
-  const consumed = await store.consumePasswordResetToken(reset.tokenHash, reset.userId, passwordHash);
-  if (!consumed) return res.status(400).json({ error: 'Este link já foi usado ou expirou.' });
+  await store.resetPassword(user.id, passwordHash);
   res.json({ ok: true, message: 'Senha redefinida com sucesso.' });
 }));
 

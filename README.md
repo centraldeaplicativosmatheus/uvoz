@@ -6,7 +6,7 @@ Plataforma de comunicação interna com:
 - **Canais de texto**: histórico no banco com rolagem infinita, "fulano está digitando…", links clicáveis, editar/apagar as próprias mensagens.
 - **Mensagens diretas (DM)**: conversa privada 1:1 — clique em alguém na lista de membros ou no **+** de "Mensagens diretas".
 - **Anexos e fotos de perfil**: envie imagens e arquivos em conversas; clique em uma imagem para ampliá-la e edite sua foto de perfil com recorte quadrado, visível para os demais usuários.
-- **Redefinição de senha**: novas contas informam um email de login; usuários existentes podem vinculá-lo no menu da foto de perfil e solicitar redefinição pelo botão "Esqueci minha senha".
+- **Redefinição de senha**: usuários podem redefinir a senha informando o nome de usuário e um código mestre configurado no servidor.
 - **Respostas**: responda a qualquer mensagem, inclusive às que contêm somente anexos; a conversa mostra uma prévia da mensagem original junto da resposta.
 - **Menções**: `@usuario`, `@todos`/`@everyone` com autocompletar (setas + Enter/Tab), destaque da mensagem e contador vermelho de menções no canal.
 - **Não lidas e notificações**: canal em negrito, divisor "Novas mensagens", total no título da aba e notificação do navegador para DMs e menções.
@@ -95,11 +95,7 @@ Acesse http://localhost:3000, clique em **Criar conta** e use o código de acess
 | `TURN_TTL_SECONDS` | `43200` | Validade das credenciais TURN (12 h) |
 | `DATA_FILE` | `./data/db.json` | Arquivo da versão antiga, importado uma única vez se existir |
 | `UPLOAD_DIR` | `./data/uploads` | Armazenamento privado dos anexos enviados |
-| `PUBLIC_URL` | origem da requisição | URL pública usada no link de redefinição de senha |
-| `SMTP_HOST` / `SMTP_PORT` | vazio / `587` | Servidor SMTP e porta para envio de emails |
-| `SMTP_SECURE` | `false` | Use `true` para SMTP sobre TLS na porta 465 |
-| `SMTP_USER` / `SMTP_PASS` | vazios | Credenciais da conta SMTP |
-| `SMTP_FROM` | `SMTP_USER` | Remetente exibido no email |
+| `PASSWORD_RESET_MASTER_CODE` | vazio | Código privado exigido para redefinir qualquer senha |
 
 Veja `.env.example`.
 
