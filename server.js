@@ -33,6 +33,7 @@ const MAX_MESSAGE_ATTACHMENTS = 10 * 1024 * 1024;
 const MAX_PROFILE_AVATAR_SIZE = 10 * 1024 * 1024;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'data', 'uploads');
 const AVATAR_DIR = path.join(UPLOAD_DIR, 'avatars');
+const ATTACHMENT_RETENTION_MS = 30 * 24 * 3600 * 1000;
 const ATTACHMENT_TYPES = {
   txt: { mime: 'text/plain' },
   csv: { mime: 'text/csv' },
@@ -691,9 +692,13 @@ async function main() {
   await store.seedChannels(LEGACY_DATA_FILE);
   await store.loadChannels();
   await fs.promises.mkdir(UPLOAD_DIR, { recursive: true });
-  await store.purgePendingAttachments(UPLOAD_DIR, Date.now() - 24 * 3600 * 1000);
-  setInterval(() => store.purgePendingAttachments(UPLOAD_DIR, Date.now() - 24 * 3600 * 1000)
-    .catch((err) => console.error('[uvoz] erro limpando anexos pendentes:', err)), 60 * 60 * 1000).unref();
+  const runAttachmentCleanup = async () => {
+    await store.purgePendingAttachments(UPLOAD_DIR, Date.now() - 24 * 3600 * 1000);
+    await store.purgeExpiredAttachments(UPLOAD_DIR, Date.now() - ATTACHMENT_RETENTION_MS);
+  };
+  await runAttachmentCleanup().catch((err) => console.error('[uvoz] erro limpando anexos:', err));
+  setInterval(() => runAttachmentCleanup()
+    .catch((err) => console.error('[uvoz] erro limpando anexos:', err)), 60 * 60 * 1000).unref();
   loadAssets();
   await auth.purgeExpiredSessions(pool);
   setInterval(() => auth.purgeExpiredSessions(pool).catch(() => {}), 6 * 3600 * 1000).unref();
