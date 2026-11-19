@@ -16,6 +16,7 @@
     "@sapphi-red/web-noise-suppressor": "0.4.1",
     "express": "^4.22.3",
     "mysql2": "^3.24.6",
+    "nodemailer": "^7.0.10",
     "socket.io": "^4.8.4"
   }
 }

@@ -71,6 +71,9 @@ label small { text-transform: none; font-weight: 400; }
 label input { text-transform: none; font-weight: 400; font-size: 15px; letter-spacing: 0; background: var(--bg-rail); border: 0; border-radius: 4px; padding: 10px 12px; outline: none; }
 label input:focus { box-shadow: 0 0 0 2px var(--brand); }
 .login-error { color: #fa777c; margin: 0; min-height: 1em; font-size: 14px; }
+.forgot-password { justify-self: start; border: 0; padding: 4px 0; background: transparent; color: var(--text-3); font-size: 13px; cursor: pointer; }
+.forgot-password:hover { color: var(--text); text-decoration: underline; }
+.forgot-password-dialog form { gap: 14px; }
 
 /* ---------- Layout ---------- */
 .app { display: grid; grid-template-columns: 72px 240px minmax(0, 1fr) 240px; min-width: 0; min-height: 0; height: 100vh; height: 100dvh; }

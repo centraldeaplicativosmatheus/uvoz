@@ -38,6 +38,10 @@
         <span>Usuário</span>
         <input id="auth-username" maxlength="32" placeholder="ex.: matheus.macedo" autocomplete="username" autocapitalize="none" spellcheck="false" />
       </label>
+      <label class="only-register">
+        <span>Email de login</span>
+        <input id="auth-email" type="email" maxlength="255" placeholder="voce@unicopag.com" autocomplete="email" />
+      </label>
       <label>
         <span>Senha</span>
         <input id="auth-password" type="password" maxlength="200" autocomplete="current-password" />
@@ -48,8 +52,24 @@
       </label>
       <p id="login-error" class="login-error" role="alert"></p>
       <button type="submit" id="auth-submit" class="btn btn-primary btn-block">Entrar</button>
+      <button type="button" id="forgot-password" class="forgot-password">Esqueci minha senha</button>
     </form>
   </section>
+
+  <dialog id="forgot-password-dialog" class="dialog forgot-password-dialog">
+    <form id="forgot-password-form" method="dialog">
+      <h3>Redefinir senha</h3>
+      <label>
+        <span>Informe seu email de login</span>
+        <input id="forgot-password-email" type="email" maxlength="255" required autocomplete="email" placeholder="voce@unicopag.com" />
+      </label>
+      <p id="forgot-password-message" class="login-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button type="button" id="cancel-forgot-password" class="btn">Cancelar</button>
+        <button type="submit" id="confirm-forgot-password" class="btn btn-primary">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- ===================== Aplicação ===================== -->
   <div id="app" class="app" hidden>
@@ -242,6 +262,11 @@
     <form method="dialog">
       <h3>Foto de perfil</h3>
       <button id="edit-profile-photo" type="button" class="btn btn-primary">Editar foto de perfil</button>
+      <label>
+        <span>Email de login</span>
+        <input id="profile-email" type="email" maxlength="255" autocomplete="email" placeholder="voce@unicopag.com" />
+      </label>
+      <button id="save-profile-email" type="button" class="btn">Salvar email</button>
       <div class="dialog-actions">
         <button value="cancel" class="btn" formnovalidate>Fechar</button>
       </div>

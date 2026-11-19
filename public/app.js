@@ -237,10 +237,40 @@
     image.src = imageUrl;
   }
 
-  $('#me-avatar').addEventListener('click', () => profileMenuDialog.showModal());
+  $('#me-avatar').addEventListener('click', () => {
+    $('#profile-email').value = state.me?.email || '';
+    profileMenuDialog.showModal();
+  });
   $('#edit-profile-photo').addEventListener('click', () => {
     profileMenuDialog.close();
     profilePhotoInput.click();
+  });
+  $('#save-profile-email').addEventListener('click', async () => {
+    const email = $('#profile-email').value.trim();
+    if (!email) {
+      toast('Informe um email válido.', 'error');
+      return;
+    }
+    const button = $('#save-profile-email');
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/profile/email', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${state.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Não foi possível salvar o email.');
+      state.me.email = result.email;
+      toast('Email de login atualizado.');
+    } catch (err) {
+      toast(err.message || 'Não foi possível salvar o email.', 'error');
+    } finally {
+      button.disabled = false;
+    }
   });
   profilePhotoInput.addEventListener('change', () => {
     loadProfilePhoto(profilePhotoInput.files?.[0]);
@@ -424,6 +454,7 @@
     $('#auth-form').classList.toggle('register', mode === 'register');
     $('#auth-submit').textContent = mode === 'login' ? 'Entrar' : 'Criar conta';
     $('#auth-password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+    $('#forgot-password').hidden = mode !== 'login';
     $('#login-error').textContent = '';
   }
   document.querySelectorAll('.auth-tabs button').forEach((b) => b.addEventListener('click', () => setAuthMode(b.dataset.mode)));
@@ -441,6 +472,7 @@
     };
     if (authMode === 'register') {
       body.displayName = $('#auth-display').value.trim();
+      body.email = $('#auth-email').value.trim();
       body.accessCode = $('#auth-code')?.value || '';
     }
     btn.disabled = true;
@@ -458,6 +490,47 @@
       $('#login-error').textContent = err.message;
     } finally {
       btn.disabled = false;
+    }
+  });
+
+  const forgotPasswordDialog = $('#forgot-password-dialog');
+  const forgotPasswordForm = $('#forgot-password-form');
+  const forgotPasswordEmail = $('#forgot-password-email');
+  const forgotPasswordMessage = $('#forgot-password-message');
+  $('#forgot-password').addEventListener('click', () => {
+    forgotPasswordEmail.value = '';
+    forgotPasswordMessage.textContent = '';
+    forgotPasswordDialog.showModal();
+  });
+  $('#cancel-forgot-password').addEventListener('click', () => forgotPasswordDialog.close());
+  forgotPasswordDialog.addEventListener('close', () => {
+    forgotPasswordEmail.value = '';
+    forgotPasswordMessage.textContent = '';
+  });
+  forgotPasswordForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = forgotPasswordEmail.value.trim();
+    if (!email) {
+      forgotPasswordMessage.textContent = 'Informe seu email de login.';
+      return;
+    }
+    const button = $('#confirm-forgot-password');
+    button.disabled = true;
+    forgotPasswordMessage.textContent = '';
+    try {
+      const response = await fetch('/api/password-reset/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Não foi possível solicitar a redefinição.');
+      forgotPasswordDialog.close();
+      toast(result.message || 'Se existir uma conta com esse email, enviaremos o link.');
+    } catch (err) {
+      forgotPasswordMessage.textContent = err.message || 'Não foi possível solicitar a redefinição.';
+    } finally {
+      button.disabled = false;
     }
   });
 
