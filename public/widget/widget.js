@@ -29,7 +29,9 @@
  *
  *   Anexos: POST /api/widget/attachments (corpo binário, cabeçalhos Authorization: Bearer <token>,
  *   X-Widget-App e X-File-Name) -> { attachment }; GET /api/widget/attachments/:id com os mesmos
- *   cabeçalhos de autenticação.
+ *   cabeçalhos de autenticação. Resposta 401 com { code: 'TOKEN_EXPIRADO' } pede um token novo.
+ *
+ *   O lado do servidor está em server.js (seção "Widget de suporte") e lib/support.js.
  */
 (() => {
   'use strict';
@@ -128,6 +130,23 @@
     const authHeaders = () => ({ Authorization: `Bearer ${config.token}`, 'X-Widget-App': config.app });
     let socket = null;
     let retryTimer = null;
+    let tokenWaiters = [];
+
+    const retryLater = () => {
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => socket.connect(), 5000);
+    };
+    /** Pede um token novo à página e espera por ele (setToken) por alguns segundos. */
+    const freshToken = () => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Sua sessão expirou. Recarregue a página.')), 8000);
+      tokenWaiters.push(() => { clearTimeout(timer); resolve(); });
+      fire('token:expired');
+    });
+    const sendFile = (file) => fetch('/api/widget/attachments', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) },
+      body: file,
+    });
 
     return {
       on(event, fn) { handlers.set(event, [...(handlers.get(event) || []), fn]); },
@@ -136,16 +155,16 @@
         loadScript('/vendor/socket.io/socket.io.min.js').then(() => {
           socket = window.io('/widget', { auth: (cb) => cb({ app: config.app, token: config.token }) });
           socket.on('connect', () => fire('status', { connected: true }));
-          socket.on('disconnect', () => fire('status', { connected: false }));
+          socket.on('disconnect', (reason) => {
+            fire('status', { connected: false });
+            if (reason === 'io server disconnect') retryLater(); // o Socket.io não reconecta sozinho neste caso
+          });
           socket.on('connect_error', (err) => {
             fire('status', { connected: false });
             if (err.message === 'TOKEN_EXPIRADO') return fire('token:expired');
             if (err.message === 'TOKEN_INVALIDO' || err.message === 'APP_INVALIDO') return fire('fatal', { code: err.message });
             // Recusa pelo servidor não dispara a reconexão automática do Socket.io.
-            if (!socket.active) {
-              clearTimeout(retryTimer);
-              retryTimer = setTimeout(() => socket.connect(), 5000);
-            }
+            if (!socket.active) retryLater();
           });
           for (const event of ['init', 'message:new', 'typing', 'team:updated']) {
             socket.on(event, (payload) => fire(event, payload));
@@ -155,6 +174,7 @@
 
       setToken(token) {
         config.token = token;
+        tokenWaiters.splice(0).forEach((resume) => resume());
         if (socket && !socket.connected) socket.connect();
       },
 
@@ -170,12 +190,13 @@
       notify(event, payload) { if (socket && socket.connected) socket.emit(event, payload); },
 
       async upload(file) {
-        const res = await fetch('/api/widget/attachments', {
-          method: 'POST',
-          headers: { ...authHeaders(), 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) },
-          body: file,
-        });
-        const data = await res.json().catch(() => ({}));
+        let res = await sendFile(file);
+        let data = await res.json().catch(() => ({}));
+        if (res.status === 401 && data.code === 'TOKEN_EXPIRADO') {
+          await freshToken();
+          res = await sendFile(file);
+          data = await res.json().catch(() => ({}));
+        }
         if (!res.ok || !data.attachment) throw new Error(data.error || 'Não foi possível enviar o arquivo.');
         return data.attachment;
       },

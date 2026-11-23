@@ -6,6 +6,7 @@ Plataforma de comunicação interna com:
 - **Canais de texto**: histórico no banco com rolagem infinita, "fulano está digitando…", links clicáveis, editar/apagar as próprias mensagens.
 - **Mensagens diretas (DM)**: conversa privada 1:1 — clique em alguém na lista de membros ou no **+** de "Mensagens diretas".
 - **Anexos e fotos de perfil**: envie imagens e arquivos em conversas; clique em uma imagem para ampliá-la e edite sua foto de perfil com recorte quadrado, visível para os demais usuários.
+- **Suporte a clientes**: widget de chat para as aplicações da Unicopag; as conversas chegam na seção "Suporte" de quem atende (veja "Suporte a clientes (widget)").
 - **Redefinição de senha**: usuários podem redefinir a senha informando o nome de usuário e um código mestre configurado no servidor.
 - **Respostas**: responda a qualquer mensagem, inclusive às que contêm somente anexos; a conversa mostra uma prévia da mensagem original junto da resposta.
 - **Menções**: `@usuario`, `@todos`/`@everyone` com autocompletar (setas + Enter/Tab), destaque da mensagem e contador vermelho de menções no canal.
@@ -96,10 +97,14 @@ Acesse http://localhost:3000, clique em **Criar conta** e use o código de acess
 | `DATA_FILE` | `./data/db.json` | Arquivo da versão antiga, importado uma única vez se existir |
 | `UPLOAD_DIR` | `./data/uploads` | Pasta local para leitura de anexos legados |
 | `PASSWORD_RESET_MASTER_CODE` | vazio | Código privado exigido para redefinir qualquer senha |
+| `SUPPORT_HOURS` | vazio | Horário do suporte a clientes: dias (1 = segunda a 7 = domingo) e horas, como `1-5 09:00-18:00`. Vazio = sempre aberto |
+| `SUPPORT_TIMEZONE` | `America/Sao_Paulo` | Fuso horário de `SUPPORT_HOURS` |
+| `SUPPORT_TOPICS` | `Saques,Vendas e cobranças,Minha conta,Outro assunto` | Atalhos de assunto na primeira conversa do widget, separados por vírgula (até 6). Vazio = sem atalhos |
+| `SUPPORT_TEAM_NAME` | `Suporte Unicopag` | Nome da equipe mostrado ao cliente nos avisos de resposta |
 
 Veja `.env.example`.
 
-Mensagens em canais de texto e DMs aceitam até cinco imagens e arquivos como `.doc`, `.xlsx`,
+Mensagens em canais de texto e DMs aceitam até cinco imagens e arquivos como `.pdf`, `.doc`, `.xlsx`,
 `.ppt` e `.txt`, além dos formatos de anexos já suportados. O limite total é de 10 MB por mensagem.
 Fotos de perfil aceitam PNG e JPEG de até 10 MB; o usuário pode ajustar um recorte quadrado antes de
 salvar. As fotos e os anexos são armazenados no MySQL e incluídos nos backups do banco. Anexos
@@ -239,25 +244,79 @@ Para rodar em desenvolvimento:
 cd desktop && npm install && npm start
 ```
 
-## Widget de suporte (em construção)
+## Suporte a clientes (widget)
 
-A pasta `public/widget/` traz o chat de suporte que será instalado nas aplicações da Unicopag, no visual do
-painel. **Por enquanto só a interface existe**: o servidor ainda não tem o namespace `/widget` do Socket.io nem as
-rotas `/api/widget/attachments`, então o widget só funciona no modo de demonstração. O contrato esperado do
-servidor está descrito no topo de `public/widget/widget.js`.
+Um chat de suporte, no visual do painel da Unicopag, que se instala nas aplicações da empresa. O cliente logado
+escreve pelo widget e a conversa aparece na seção **Suporte** do UVoz, visível só para quem atende.
 
-Para ver funcionando com um servidor simulado, suba o UVoz e abra `/widget/demo.html`.
+- Cada cliente tem **uma conversa**. **Resolver** encerra o atendimento (o cliente vê "Atendimento encerrado");
+  a próxima mensagem dele, ou uma resposta da equipe, reabre a mesma conversa com o histórico inteiro.
+- O cliente vê só o primeiro nome de quem respondeu. Não lidas, notificações e anexos funcionam como nas DMs.
+- Mensagens enviadas a clientes não podem ser editadas nem apagadas.
+- O widget mostra "Online agora" quando há atendente conectado dentro do horário. Fora do horário, mostra o
+  horário de atendimento e responde à primeira mensagem com um aviso automático (no máximo um a cada 6 horas).
+- Anexos de clientes: PNG, JPEG, GIF, WebP, PDF, TXT, CSV e documentos do Word e Excel, com o conteúdo conferido
+  contra a extensão. Como os demais anexos, ficam disponíveis por 30 dias.
+- Clientes conectam em um namespace próprio do Socket.io (`/widget`) e não recebem nada do UVoz interno.
 
-Instalação na aplicação do cliente (a conta precisa estar logada; o token é gerado e assinado pelo servidor da
-aplicação):
+### Como ativar
 
-```html
-<script src="https://uvoz.on-forge.com/widget/loader.js" data-app="unicopag" data-token="TOKEN_ASSINADO" async></script>
+1. Defina quem atende e reinicie o processo do UVoz:
+   ```bash
+   node scripts/support-agent.js kay
+   ```
+2. Cadastre a aplicação e guarde o segredo que o comando mostra (ele fica só no servidor da aplicação):
+   ```bash
+   node scripts/support-app.js unicopag "Unicopag"
+   ```
+3. Opcional: ajuste o horário e os atalhos de assunto no `.env` (veja as variáveis `SUPPORT_*` abaixo).
+4. Na aplicação, a cada página carregada com a conta logada, gere o token do cliente no servidor e inclua o script:
+   ```html
+   <script src="https://uvoz.on-forge.com/widget/loader.js" data-app="unicopag" data-token="TOKEN_DO_CLIENTE" async></script>
+   ```
+   Em aplicações de página única, carregue o script sem os atributos `data-` e use
+   `UVozWidget.boot({ app, token, getToken })` ao entrar e `UVozWidget.shutdown()` ao sair da conta. `getToken` é
+   uma função que busca um token novo quando o atual expira. As demais opções (`side`, `offsetX`, `offsetY`,
+   `launcher`) estão documentadas em `public/widget/loader.js`.
+
+### Token do cliente
+
+É um JWT assinado com HS256 usando o segredo da aplicação. Qualquer biblioteca de JWT serve. Campos:
+
+| Campo | Obrigatório | Conteúdo |
+|---|---|---|
+| `sub` | sim | Identificador estável da conta na aplicação (até 128 caracteres) |
+| `name` | sim | Nome exibido para a equipe |
+| `email` | não | Email da conta |
+| `exp` | sim | Validade, em segundos; no máximo 24 horas à frente (recomendado: 1 hora) |
+
+Exemplo em Node.js, sem dependências:
+
+```js
+const crypto = require('crypto');
+function tokenDoCliente(conta, segredo) {
+  const parte = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url');
+  const corpo = `${parte({ alg: 'HS256', typ: 'JWT' })}.${parte({
+    sub: String(conta.id), name: conta.nome, email: conta.email,
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  })}`;
+  return `${corpo}.${crypto.createHmac('sha256', segredo).update(corpo).digest('base64url')}`;
+}
 ```
 
-Em aplicações de página única, carregue o script sem os atributos `data-` e use
-`UVozWidget.boot({ app, token, getToken })` ao entrar e `UVozWidget.shutdown()` ao sair da conta. As demais
-opções (`side`, `offsetX`, `offsetY`, `launcher`) estão documentadas em `public/widget/loader.js`.
+O token deve ser gerado sempre no servidor: quem tem o segredo consegue se passar por qualquer cliente.
+Para trocar o segredo: `node scripts/support-app.js unicopag --novo-segredo`.
+
+### Testando
+
+`/widget/demo.html` mostra o widget com um servidor simulado. Para testar de verdade, gere um token e abra a
+mesma página com ele:
+
+```bash
+node scripts/support-token.js unicopag conta-teste "Cliente de Teste"
+```
+
+Depois abra `/widget/demo.html?app=unicopag&token=TOKEN` e, em outra janela, o UVoz com a conta de quem atende.
 
 ## Estrutura
 
@@ -266,15 +325,16 @@ server.js          Servidor: Express (API de contas) + Socket.io (chat, DMs, men
 lib/db.js          Conexão MySQL e migrações do esquema
 lib/auth.js        Senhas (scrypt), sessões e limite de tentativas
 lib/store.js       Consultas: usuários, canais, mensagens, DMs, menções, não lidas
+lib/support.js     Suporte a clientes: token do cliente, horário, aplicações, contatos e conversas
 lib/env.js         Leitura do .env
-scripts/           Administração (redefinir senha, remover conta)
+scripts/           Administração (redefinir senha, remover conta, atendentes e aplicações do suporte)
 deploy/coturn/     Instalação do servidor TURN
 deploy/backup/     Backup diário dos bancos MySQL para o R2
 public/index.html  Interface
 public/styles.css  Tema escuro estilo Discord
 public/app.js      Interface: login, canais, DMs, menções, chat, palco de vídeo
 public/manifest.webmanifest, public/icons/   App instalável (PWA)
-public/widget/     Widget de suporte: loader.js (instalador), frame.html + widget.css + widget.js (chat), demo
+public/widget/     Widget de suporte: loader.js (instalador), frame.html + widget.css + widget.js (chat), página de teste
 desktop/           App para Windows (Electron): janela, bandeja, atalho global, seletor de tela
 public/rtc.js      WebRTC: conexões P2P (perfect negotiation), recuperação automática, supressão de ruído, detector de fala
 ```

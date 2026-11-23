@@ -10,6 +10,7 @@
     main { max-width: 720px; padding: 48px 24px; }
     h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: -0.02em; }
     p { margin: 0 0 20px; color: #a9b8d0; }
+    code { padding: 1px 5px; border-radius: 5px; background: #121f36; font-size: 13px; }
     nav { display: flex; flex-wrap: wrap; gap: 8px; }
     a { padding: 8px 16px; border: 1px solid #2c446b; border-radius: 999px; background: #121f36; color: inherit; text-decoration: none; font-weight: 500; }
     a[aria-current] { background: #db3240; border-color: #db3240; }
@@ -19,7 +20,9 @@
 <body>
   <main>
     <h1>Widget de suporte</h1>
-    <p>Página de teste com um servidor simulado. Nenhuma mensagem sai deste navegador.</p>
+    <p>Página de teste. Os cenários abaixo usam um servidor simulado: nenhuma mensagem sai deste navegador.
+      Para testar com o servidor de verdade, abra <code>?app=ID&amp;token=TOKEN</code> com um token gerado por
+      <code>scripts/support-token.js</code>.</p>
     <nav aria-label="Cenários">
       <a href="?demo=1">Primeira conversa</a>
       <a href="?demo=conversa">Conversa em andamento</a>
@@ -32,9 +35,14 @@
   <script src="loader.js"></script>
   <script>
     const query = new URLSearchParams(location.search);
-    const scenario = query.get('demo') || '1';
-    document.querySelector(`a[href="?demo=${scenario}"]`)?.setAttribute('aria-current', 'page');
-    UVozWidget.boot({ app: 'demo', demo: scenario, launcher: query.get('launcher') || 'light' });
+    const launcher = query.get('launcher') || 'light';
+    if (query.get('token')) {
+      UVozWidget.boot({ app: query.get('app'), token: query.get('token'), launcher });
+    } else {
+      const scenario = query.get('demo') || '1';
+      document.querySelector(`a[href="?demo=${scenario}"]`)?.setAttribute('aria-current', 'page');
+      UVozWidget.boot({ app: 'demo', demo: scenario, launcher });
+    }
   </script>
 </body>
 </html>

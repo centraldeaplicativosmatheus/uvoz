@@ -96,6 +96,14 @@
         <span>Unicopag</span>
       </header>
       <div class="sidebar-scroll">
+        <!-- Atendimentos a clientes: só aparece para quem atende o suporte -->
+        <div id="support-section" hidden>
+          <div class="section-title"><span>Suporte</span></div>
+          <ul id="support-list" class="channel-list"></ul>
+          <button id="support-resolved-toggle" type="button" class="support-resolved-toggle" aria-controls="support-resolved" hidden></button>
+          <ul id="support-resolved" class="channel-list" hidden></ul>
+        </div>
+
         <div class="section-title">
           <span>Canais de texto</span>
           <button class="icon-btn small" data-create="text" title="Criar canal de texto" aria-label="Criar canal de texto">
@@ -160,6 +168,7 @@
         <strong id="header-title"></strong>
         <span id="header-topic" class="header-topic muted"></span>
         <div class="spacer"></div>
+        <button id="support-status" type="button" class="btn support-status" hidden>Resolver</button>
         <button id="toggle-members" class="icon-btn" title="Membros" aria-label="Mostrar membros">
           <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-6 6.5-6s5.9 2.4 6.5 6"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.4 0 4.2 1.8 4.6 4.5"/></svg>
         </button>
@@ -175,7 +184,7 @@
           </div>
           <div id="reply-preview" class="composer-reply" hidden></div>
           <input id="attachment-input" type="file" multiple
-            accept=".txt,.csv,.xls,.xlsx,.ods,.doc,.docx,.odt,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.avif,.bmp,.mp4,.webm,.mov,.m4v,.avi,.mkv" hidden>
+            accept=".pdf,.txt,.csv,.xls,.xlsx,.ods,.doc,.docx,.odt,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.avif,.bmp,.mp4,.webm,.mov,.m4v,.avi,.mkv" hidden>
           <form id="composer" class="composer">
             <button type="button" id="attach-files" class="icon-btn attach-btn" title="Anexar arquivos" aria-label="Anexar arquivos">
               <svg viewBox="0 0 24 24"><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.5-9.5a4 4 0 0 1 5.7 5.7L9.2 17.7a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>

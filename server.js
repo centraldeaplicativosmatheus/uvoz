@@ -4,6 +4,8 @@
  * - Express serve o front-end (pasta /public) e a API de contas (/api/*).
  * - MySQL guarda usuários, sessões, canais, mensagens, DMs, menções e leitura.
  * - Socket.io cuida de presença, mensagens em tempo real e sinalização WebRTC.
+ * - O namespace "/widget" do Socket.io atende os clientes do chat de suporte (public/widget);
+ *   as conversas deles aparecem na seção "Suporte" para os atendentes.
  * - Áudio, vídeo e tela trafegam P2P entre os navegadores (com TURN quando preciso).
  */
 const fs = require('fs');
@@ -19,6 +21,7 @@ loadDotEnv(__dirname);
 const { createPool, migrate } = require('./lib/db');
 const { Store, scopeKey, ATTACHMENT_RETENTION_MS } = require('./lib/store');
 const auth = require('./lib/auth');
+const { SupportStore, parseHours, isOpen, contactFileType } = require('./lib/support');
 
 // ---------------------------------------------------------------------------
 // Configuração
@@ -34,6 +37,7 @@ const MAX_PROFILE_AVATAR_SIZE = 10 * 1024 * 1024;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'data', 'uploads');
 const AVATAR_DIR = path.join(UPLOAD_DIR, 'avatars');
 const ATTACHMENT_TYPES = {
+  pdf: { mime: 'application/pdf' },
   txt: { mime: 'text/plain' },
   csv: { mime: 'text/csv' },
   xls: { mime: 'application/vnd.ms-excel' },
@@ -60,6 +64,12 @@ const ATTACHMENT_TYPES = {
 };
 const RESERVED_USERNAMES = new Set(['todos', 'everyone', 'here', 'aqui', 'admin', 'sistema', 'uvoz']);
 const PASSWORD_RESET_MASTER_CODE = String(process.env.PASSWORD_RESET_MASTER_CODE || '');
+
+// Suporte a clientes (widget)
+const SUPPORT_HOURS = parseHours(process.env.SUPPORT_HOURS, process.env.SUPPORT_TIMEZONE || 'America/Sao_Paulo');
+const SUPPORT_TEAM_NAME = sanitizeText(process.env.SUPPORT_TEAM_NAME, 40) || 'Suporte Unicopag';
+const SUPPORT_TOPICS = (process.env.SUPPORT_TOPICS ?? 'Saques,Vendas e cobranças,Minha conta,Outro assunto')
+  .split(',').map((topic) => sanitizeText(topic, 40)).filter(Boolean).slice(0, 6);
 
 function parseIceServers() {
   const fallback = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
@@ -167,6 +177,53 @@ const userSockets = new Map();
 
 const isOnline = (userId) => (userSockets.get(userId)?.size || 0) > 0;
 const emptyMedia = () => ({ mic: false, cam: false, screen: false, cameraStreamId: null, screenStreamId: null });
+
+// ---------------------------------------------------------------------------
+// Suporte a clientes: o que é compartilhado entre o widget e a caixa de Suporte
+// ---------------------------------------------------------------------------
+const support = new SupportStore(pool, store);
+const widget = io.of('/widget'); // clientes; isolado do namespace padrão, que é só da equipe
+const SUPPORT_ROOM = 'support'; // sockets dos atendentes, no namespace padrão
+const contactRoom = (appId, externalId) => `contact:${appId}:${externalId}`;
+const roomOfConversation = (conversation) => contactRoom(conversation.app.id, conversation.contact.externalId);
+const firstName = (name) => String(name || '').trim().split(/\s+/)[0] || 'Suporte';
+
+/** O que o widget mostra sobre a equipe: online só dentro do horário e com algum atendente conectado. */
+function supportTeam() {
+  const open = isOpen(SUPPORT_HOURS);
+  return {
+    name: SUPPORT_TEAM_NAME,
+    online: open && [...support.agents].some(isOnline),
+    hours: open ? null : `Respondemos ${SUPPORT_HOURS.text}`,
+  };
+}
+
+let lastTeamState = '';
+function broadcastSupportTeam() {
+  const team = supportTeam();
+  const snapshot = JSON.stringify(team);
+  if (snapshot === lastTeamState) return;
+  lastTeamState = snapshot;
+  widget.emit('team:updated', team);
+}
+
+/** Mensagem no formato do widget: sem dados internos da equipe além do primeiro nome de quem respondeu. */
+function toWidgetMessage(message, clientId) {
+  const from = message.system ? 'system' : message.fromContact ? 'contact' : 'agent';
+  return {
+    id: message.id, from, text: message.text, ts: message.ts, attachments: message.attachments,
+    author: from === 'agent' ? { name: firstName(message.author.name) } : null,
+    ...(clientId ? { clientId } : {}),
+  };
+}
+
+/** Aviso do sistema na conversa, visível para o cliente e para os atendentes. */
+async function supportSystemMessage(conversation, text) {
+  const id = await support.createSystemMessage(conversation.id, text);
+  const { message } = await store.getMessage(id);
+  io.to(SUPPORT_ROOM).emit('message:new', message);
+  widget.to(roomOfConversation(conversation)).emit('message:new', toWidgetMessage(message));
+}
 
 // ---------------------------------------------------------------------------
 // API HTTP de contas
@@ -471,12 +528,19 @@ async function resolveScope(scope, userId) {
     if (!dm || !store.dmMembers(dm).includes(userId)) return null;
     return { type: 'dm', id: dm.id, dm };
   }
+  if (scope?.type === 'support') {
+    // Hoje todo atendente vê todos os atendimentos; o responsável (assigneeId) é para o encaminhamento futuro.
+    if (!support.isAgent(userId)) return null;
+    const conversation = await support.getConversation(scope.id);
+    return conversation ? { type: 'support', id: conversation.id, conversation } : null;
+  }
   return null;
 }
 
 /** Envia um evento para quem pode ver o scope. */
 function emitToScope(scope, event, payload) {
   if (scope.type === 'channel') return io.emit(event, payload);
+  if (scope.type === 'support') return io.to(SUPPORT_ROOM).emit(event, payload);
   const [a, b] = store.dmMembers(scope.dm);
   io.to(`user:${a}`).to(`user:${b}`).emit(event, payload);
 }
@@ -490,6 +554,11 @@ io.on('connection', async (socket) => {
   const firstSocket = userSockets.get(userId).size === 0;
   userSockets.get(userId).add(socket.id);
   if (firstSocket) socket.broadcast.emit('presence', { userId, online: true });
+  const isSupportAgent = support.isAgent(userId);
+  if (isSupportAgent) {
+    socket.join(SUPPORT_ROOM);
+    if (firstSocket) broadcastSupportTeam();
+  }
 
   // Registrado antes de qualquer await para não perder uma desconexão rápida.
   socket.on('disconnect', () => {
@@ -501,6 +570,7 @@ io.on('connection', async (socket) => {
         userSockets.delete(userId);
         io.emit('presence', { userId, online: false, lastSeen: Date.now() });
         store.touchUser(userId).catch(() => {});
+        if (isSupportAgent) broadcastSupportTeam();
       }
     }
   });
@@ -566,13 +636,19 @@ io.on('connection', async (socket) => {
     if (!scope) return { error: 'Conversa não encontrada.' };
     const text = sanitizeText(p.text, MAX_MESSAGE_LENGTH);
     const attachmentIds = Array.isArray(p.attachmentIds) ? p.attachmentIds : [];
-    const replyToId = p.replyToId == null ? null : Number(p.replyToId);
-    if (p.replyToId != null && (!Number.isSafeInteger(replyToId) || replyToId <= 0)) {
+    // O widget do cliente não mostra citações, então atendimentos não usam "responder a".
+    const replyToId = p.replyToId == null || scope.type === 'support' ? null : Number(p.replyToId);
+    if (replyToId !== null && (!Number.isSafeInteger(replyToId) || replyToId <= 0)) {
       return { error: 'Mensagem respondida inválida.' };
     }
     if (!text && !attachmentIds.length) return { error: 'Mensagem vazia.' };
     const message = await store.createMessage(scope, userId, text, attachmentIds, replyToId);
     if (message.error) return message;
+    if (scope.type === 'support') {
+      const conversation = await support.getConversation(scope.id);
+      io.to(SUPPORT_ROOM).emit('support:upsert', conversation);
+      widget.to(roomOfConversation(conversation)).emit('message:new', toWidgetMessage(message));
+    }
     if (scope.type === 'dm') {
       for (const member of store.dmMembers(scope.dm)) {
         io.to(`user:${member}`).emit('dm:upsert', store.publicDm({ ...scope.dm, last_message_at: message.ts }, member));
@@ -587,6 +663,7 @@ io.on('connection', async (socket) => {
     if (!found || found.row.author_id !== userId) return { error: 'Você só pode editar suas mensagens.' };
     const scope = await resolveScope(found.message.scope, userId);
     if (!scope) return { error: 'Conversa não encontrada.' };
+    if (scope.type === 'support') return { error: 'Mensagens enviadas a clientes não podem ser editadas.' };
     const text = sanitizeText(p.text, MAX_MESSAGE_LENGTH);
     if (!text) return { error: 'Mensagem vazia.' };
     const message = await store.editMessage(found.message.id, text, scope.type === 'channel');
@@ -599,6 +676,7 @@ io.on('connection', async (socket) => {
     if (!found || found.row.author_id !== userId) return { error: 'Você só pode apagar suas mensagens.' };
     const scope = await resolveScope(found.message.scope, userId);
     if (!scope) return { error: 'Conversa não encontrada.' };
+    if (scope.type === 'support') return { error: 'Mensagens enviadas a clientes não podem ser apagadas.' };
     const storedFiles = await store.deleteMessage(found.message.id);
     for (const storageName of storedFiles) {
       await fs.promises.unlink(path.join(UPLOAD_DIR, storageName)).catch((err) => {
@@ -623,11 +701,28 @@ io.on('connection', async (socket) => {
     if (!scope) return { ok: false };
     const payload = { scope: { type: scope.type, id: scope.id }, userId };
     if (scope.type === 'channel') socket.broadcast.emit('typing', payload);
-    else {
+    else if (scope.type === 'support') {
+      socket.to(SUPPORT_ROOM).emit('typing', payload);
+      widget.to(roomOfConversation(scope.conversation)).emit('typing', { name: firstName(me.displayName) });
+    } else {
       const other = store.dmMembers(scope.dm).find((m) => m !== userId);
       if (other) io.to(`user:${other}`).emit('typing', payload);
     }
     return { ok: true };
+  });
+
+  // ----- Atendimentos de suporte ---------------------------------------------
+  on('support:status', async (p) => {
+    const scope = await resolveScope({ type: 'support', id: p.id }, userId);
+    if (!scope) return { error: 'Atendimento não encontrado.' };
+    const status = p.status === 'resolved' ? 'resolved' : 'open';
+    const changed = await support.setStatus(scope.id, status, userId);
+    const conversation = await support.getConversation(scope.id);
+    if (changed) {
+      io.to(SUPPORT_ROOM).emit('support:upsert', conversation);
+      if (status === 'resolved') await supportSystemMessage(conversation, 'Atendimento encerrado');
+    }
+    return { conversation };
   });
 
   // ----- Mensagens diretas -------------------------------------------------
@@ -692,19 +787,23 @@ io.on('connection', async (socket) => {
   // ----- Estado inicial ------------------------------------------------------
   // Enviado depois de registrar os handlers: o que o cliente emitir logo após conectar não se perde.
   try {
-    const dms = await store.listDms(userId);
+    const [dms, supportConversations] = await Promise.all([
+      store.listDms(userId),
+      isSupportAgent ? support.listConversations() : null,
+    ]);
     const [unread, initial, ownEmail] = await Promise.all([
-      store.unreadSummary(userId, dms),
+      store.unreadSummary(userId, dms, (supportConversations || []).map((c) => c.id)),
       initialMessages(socket.handshake.auth?.view, userId),
       store.getUserEmail(userId),
     ]);
     socket.emit('init', {
-      me: { ...me, email: ownEmail },
+      me: { ...me, email: ownEmail, support: isSupportAgent },
       socketId: socket.id,
       channels: store.listChannels(),
       users: [...store.users.values()].map((u) => ({ ...u, online: isOnline(u.id), lastSeen: store.lastSeenAt.get(u.id) || null })),
       voice: [...voiceStates.values()],
       dms,
+      support: supportConversations, // null para quem não atende o suporte
       unread,
       initial, // mensagens da conversa que o cliente vai abrir (economiza uma ida e volta)
       iceServers: iceServersFor(socket.id),
@@ -720,7 +819,7 @@ io.on('connection', async (socket) => {
 /** Primeira página da conversa que o cliente tinha aberta; null em qualquer problema. */
 async function initialMessages(view, userId) {
   try {
-    if (!view || typeof view !== 'object' || !['channel', 'dm'].includes(view.type)) return null;
+    if (!view || typeof view !== 'object' || !['channel', 'dm', 'support'].includes(view.type)) return null;
     if (!['string', 'number'].includes(typeof view.id)) return null;
     const scope = await resolveScope({ type: view.type, id: view.id }, userId);
     if (!scope) return null;
@@ -730,6 +829,170 @@ async function initialMessages(view, userId) {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Widget de suporte: clientes das aplicações conectadas
+// ---------------------------------------------------------------------------
+const widgetMessagesByContact = new auth.RateLimiter(20, 60 * 1000);
+const widgetUploadsByContact = new auth.RateLimiter(30, 10 * 60 * 1000);
+
+widget.use(async (socket, next) => {
+  try {
+    const result = await support.authenticate(socket.handshake.auth?.app, socket.handshake.auth?.token);
+    if (result.error) return next(new Error(result.error));
+    socket.data.app = result.app;
+    socket.data.identity = result.identity;
+    next();
+  } catch (err) {
+    console.error('[uvoz] erro na autenticação do widget:', err);
+    next(new Error('ERRO_SERVIDOR'));
+  }
+});
+
+widget.on('connection', async (socket) => {
+  const { app: clientApp, identity } = socket.data;
+  const room = contactRoom(clientApp.id, identity.id);
+  const limitKey = `${clientApp.id}:${identity.id}`;
+  let conversationId = null; // só existe depois da primeira mensagem do cliente
+  socket.join(room);
+
+  const on = (event, fn) => socket.on(event, async (payload, ack) => {
+    const reply = typeof ack === 'function' ? ack : () => {};
+    try {
+      reply((await fn(payload || {})) ?? { ok: true });
+    } catch (err) {
+      console.error(`[uvoz] erro em widget ${event}:`, err);
+      reply({ error: 'Erro interno. Tente novamente.' });
+    }
+  });
+
+  const findConversation = async () => {
+    const contact = await support.findContact(clientApp.id, identity.id);
+    const conversation = contact ? await support.getConversationByContact(contact.id) : null;
+    conversationId = conversation?.id || null;
+    return conversation;
+  };
+
+  on('message:send', async (p) => {
+    if (widgetMessagesByContact.blocked(limitKey)) return { error: 'Muitas mensagens em pouco tempo. Aguarde um instante.' };
+    widgetMessagesByContact.hit(limitKey);
+    const text = sanitizeText(p.text, MAX_MESSAGE_LENGTH);
+    const attachmentIds = Array.isArray(p.attachmentIds) ? p.attachmentIds : [];
+    const clientId = typeof p.clientId === 'string' && /^[\w-]{1,40}$/.test(p.clientId) ? p.clientId : null;
+    if (!text && !attachmentIds.length) return { error: 'Mensagem vazia.' };
+
+    const created = await support.createContactMessage({ app: clientApp, identity, text, attachmentIds, clientId });
+    if (created.error) return created;
+    conversationId = created.conversationId;
+    const { message } = await store.getMessage(created.messageId);
+    const widgetMessage = toWidgetMessage(message, clientId);
+    if (created.duplicate) return { message: widgetMessage }; // reenvio de algo que já tinha chegado
+
+    const conversation = await support.getConversation(created.conversationId);
+    io.to(SUPPORT_ROOM).emit('support:upsert', conversation); // antes da mensagem: a conversa pode ser nova
+    io.to(SUPPORT_ROOM).emit('message:new', message);
+    socket.to(room).emit('message:new', widgetMessage); // outras abas do mesmo cliente
+    if (!isOpen(SUPPORT_HOURS) && await support.claimAutoNotice(conversation.id)) {
+      await supportSystemMessage(conversation,
+        `Recebemos sua mensagem. Nosso atendimento funciona ${SUPPORT_HOURS.text}, e respondemos assim que voltarmos.`);
+    }
+    return { message: widgetMessage };
+  });
+
+  on('messages:get', async (p) => {
+    const conversation = await findConversation();
+    if (!conversation) return { messages: [], hasMore: false };
+    const page = await store.getMessages({ type: 'support', id: conversation.id }, Number(p.before) || undefined);
+    return { messages: page.messages.map((m) => toWidgetMessage(m)), hasMore: page.hasMore };
+  });
+
+  socket.on('typing', () => {
+    if (!conversationId) return;
+    // Mesmo corte de 40 caracteres do nome gravado nas mensagens, para o "digitando" sumir quando a mensagem chega.
+    io.to(SUPPORT_ROOM).emit('typing', { scope: { type: 'support', id: conversationId }, userId: null, name: identity.name.slice(0, 40) });
+  });
+
+  socket.on('read:mark', (p) => {
+    const lastId = store.lastIds.get(`s:${conversationId}`) || 0;
+    const messageId = Math.min(Number(p?.messageId) || 0, lastId);
+    if (!conversationId || messageId <= 0) return;
+    support.markContactRead(conversationId, messageId)
+      .catch((err) => console.error('[uvoz] erro em widget read:mark:', err));
+  });
+
+  // Estado inicial, depois de registrar os handlers.
+  try {
+    const conversation = await findConversation();
+    const page = conversation
+      ? await store.getMessages({ type: 'support', id: conversation.id })
+      : { messages: [], hasMore: false };
+    socket.emit('init', {
+      contact: { name: identity.name },
+      team: supportTeam(),
+      topics: SUPPORT_TOPICS,
+      features: { attachments: true },
+      messages: page.messages.map((m) => toWidgetMessage(m)),
+      hasMore: page.hasMore,
+      lastReadId: conversation?.contactLastReadId || 0,
+    });
+  } catch (err) {
+    console.error('[uvoz] erro ao iniciar o widget:', err);
+    socket.disconnect(true);
+  }
+});
+
+/** Autentica uma requisição HTTP do widget. Responde 401 e devolve null se o token não vale. */
+async function widgetSession(req, res) {
+  const result = await support.authenticate(req.headers['x-widget-app'], bearer(req));
+  if (!result.error) return result;
+  res.status(401).json({
+    code: result.error,
+    error: result.error === 'TOKEN_EXPIRADO' ? 'Sua sessão expirou.' : 'Acesso não autorizado.',
+  });
+  return null;
+}
+
+app.post('/api/widget/attachments', express.raw({ type: 'application/octet-stream', limit: MAX_MESSAGE_ATTACHMENTS }), asyncRoute(async (req, res) => {
+  const session = await widgetSession(req, res);
+  if (!session) return;
+  const limitKey = `${session.app.id}:${session.identity.id}`;
+  if (widgetUploadsByContact.blocked(limitKey)) return res.status(429).json({ error: 'Muitos arquivos em pouco tempo. Aguarde alguns minutos.' });
+  widgetUploadsByContact.hit(limitKey);
+  if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Arquivo vazio ou inválido.' });
+
+  let originalName;
+  try { originalName = decodeURIComponent(String(req.headers['x-file-name'] || '')); }
+  catch { return res.status(400).json({ error: 'Nome de arquivo inválido.' }); }
+  originalName = path.basename(originalName.replace(/[\\/]/g, path.sep))
+    .replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 255);
+  const mimeType = originalName ? contactFileType(path.extname(originalName).slice(1).toLowerCase(), req.body) : null;
+  if (!mimeType) return res.status(400).json({ error: 'Formato de arquivo não permitido.' });
+
+  const contact = await support.ensureContact(session.app.id, session.identity);
+  const id = crypto.randomUUID();
+  await store.createPendingAttachment({
+    id, storageName: crypto.randomUUID(), contactId: contact.id, originalName,
+    mimeType, size: req.body.length, data: req.body,
+  });
+  res.status(201).json({ attachment: { id, name: originalName, size: req.body.length, type: mimeType } });
+}));
+
+app.get('/api/widget/attachments/:id', asyncRoute(async (req, res) => {
+  const session = await widgetSession(req, res);
+  if (!session) return;
+  const notFound = () => res.status(404).json({ error: 'Arquivo não encontrado.' });
+  if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) return notFound();
+  const [contact, attachment] = await Promise.all([
+    support.findContact(session.app.id, session.identity.id),
+    store.getAttachment(req.params.id),
+  ]);
+  if (!contact || !attachment || !Buffer.isBuffer(attachment.file_data)) return notFound();
+  if (!(await support.contactCanReadAttachment(contact.id, attachment))) return notFound();
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.attachment(attachment.original_name);
+  res.set('Content-Type', attachment.mime_type);
+  res.send(attachment.file_data);
+}));
 
 function leaveVoice(socket) {
   const state = voiceStates.get(socket.id);
@@ -741,7 +1004,7 @@ function leaveVoice(socket) {
 }
 
 app.use((err, req, res, next) => {
-  if (req.path === '/api/attachments' && err.type === 'entity.too.large') {
+  if (['/api/attachments', '/api/widget/attachments'].includes(req.path) && err.type === 'entity.too.large') {
     return res.status(413).json({ error: 'O limite total por mensagem é 10 MB.' });
   }
   if (req.path === '/api/profile/avatar' && err.type === 'entity.too.large') {
@@ -759,6 +1022,9 @@ async function main() {
   await store.loadUsers();
   await store.seedChannels(LEGACY_DATA_FILE);
   await store.loadChannels();
+  await support.loadAgents();
+  await support.loadLastIds(); // depois de loadChannels, que recria o cache de últimos ids
+  setInterval(broadcastSupportTeam, 60 * 1000).unref(); // abertura e fechamento do horário de atendimento
   await fs.promises.mkdir(UPLOAD_DIR, { recursive: true });
   const runAttachmentCleanup = async () => {
     await store.purgePendingAttachments(UPLOAD_DIR, Date.now() - 24 * 3600 * 1000);
@@ -775,6 +1041,7 @@ async function main() {
     console.log(`[uvoz] rodando em http://${HOST}:${PORT}`);
     if (!ACCESS_CODE) console.log('[uvoz] ATENÇÃO: ACCESS_CODE não definido — qualquer pessoa pode criar conta.');
     console.log(`[uvoz] TURN ${TURN_SECRET && TURN_URLS.length ? 'ativo: ' + TURN_URLS.join(', ') : 'desativado (apenas STUN)'}`);
+    console.log(`[uvoz] suporte: ${support.agents.size} atendente(s); horário ${SUPPORT_HOURS ? SUPPORT_HOURS.text : 'não configurado (sempre aberto)'}`);
   });
 }
 

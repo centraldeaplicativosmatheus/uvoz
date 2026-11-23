@@ -51,8 +51,10 @@
     users: new Map(), // id -> { id, username, displayName, color, avatarVersion, online, lastSeen }
     voice: new Map(), // socketId -> { socketId, userId, channelId, media }
     dms: new Map(), // dmId -> { id, userId, lastMessageAt }
-    unread: new Map(), // 'c:geral' | 'd:12' -> { unread, mentions, lastReadId }
-    view: null, // { type: 'channel'|'voice'|'dm', id }
+    support: null, // atendimentos a clientes: id -> { id, status, lastMessageAt, contact, app }; null para quem não atende
+    supportShowResolved: false,
+    unread: new Map(), // 'c:geral' | 'd:12' | 's:7' -> { unread, mentions, lastReadId }
+    view: null, // { type: 'channel'|'voice'|'dm'|'support', id }
     conv: new Map(), // key -> { list, hasMore, loading, loaded }
     divider: new Map(), // key -> lastReadId no momento em que a conversa foi aberta
     typing: new Map(), // key -> Map(userId -> timeout)
@@ -70,7 +72,10 @@
     del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } },
   };
 
-  const keyOf = (scope) => `${scope.type === 'dm' ? 'd' : 'c'}:${scope.id}`;
+  const KEY_PREFIX = { channel: 'c', dm: 'd', support: 's' };
+  const keyOf = (scope) => `${KEY_PREFIX[scope.type]}:${scope.id}`;
+  // DMs e atendimentos: toda mensagem recebida conta como aviso (nos canais, só as menções).
+  const isDirectKey = (key) => key.startsWith('d:') || key.startsWith('s:');
   const viewScope = () => (state.view && state.view.type !== 'voice' ? { type: state.view.type, id: state.view.id } : null);
   const viewKey = () => (viewScope() ? keyOf(viewScope()) : null);
   const channelById = (id) => state.channels.find((c) => c.id === id);
@@ -663,6 +668,12 @@
       updateUnreadRow(scope); updateTitle();
     });
     socket.on('typing', onTyping);
+    socket.on('support:upsert', (conversation) => {
+      if (!state.support) return;
+      state.support.set(conversation.id, conversation);
+      renderSupport();
+      if (state.view?.type === 'support' && state.view.id === conversation.id) renderHeader();
+    });
     socket.on('dm:upsert', (dm) => {
       const prev = state.dms.get(dm.id);
       state.dms.set(dm.id, { ...prev, ...dm });
@@ -693,7 +704,7 @@
   function savedView() {
     try {
       const v = JSON.parse(storage.get('uvoz:view') || 'null');
-      return v && (v.type === 'channel' || v.type === 'dm') ? { type: v.type, id: v.id } : null;
+      return v && ['channel', 'dm', 'support'].includes(v.type) ? { type: v.type, id: v.id } : null;
     } catch { return null; }
   }
 
@@ -714,6 +725,7 @@
     userIdx = null;
     state.voice = new Map(data.voice.map((v) => [v.socketId, v]));
     state.dms = new Map(data.dms.map((d) => [d.id, d]));
+    state.support = data.support ? new Map(data.support.map((c) => [c.id, c])) : null;
     state.unread = new Map(Object.entries(data.unread));
 
     // Conversas: mantém só a que está aberta (as outras recarregam sob demanda) e a marca para
@@ -735,7 +747,7 @@
     $('#me-name').textContent = state.me.displayName;
     $('#me-status').textContent = `@${state.me.username}`;
     renderAvatar($('#me-avatar'), state.me);
-    renderChannels(); renderDms(); renderMembers(); updateTitle();
+    renderChannels(); renderSupport(); renderDms(); renderMembers(); updateTitle();
 
     if (reconnecting && state.view && isValidView(state.view)) {
       // Reconexão: não troca a tela por "Carregando…" nem perde a posição de leitura.
@@ -787,6 +799,7 @@
 
   function isValidView(v) {
     if (v.type === 'dm') return state.dms.has(Number(v.id));
+    if (v.type === 'support') return !!state.support?.has(Number(v.id));
     const c = channelById(v.id);
     return !!c && ((v.type === 'voice') === (c.type === 'voice'));
   }
@@ -815,9 +828,9 @@
   function badge(key) {
     const u = state.unread.get(key);
     if (!u) return null;
-    const isDm = key.startsWith('d:');
-    const count = isDm ? u.unread : u.mentions;
-    return count > 0 ? el('span', { class: 'badge', title: isDm ? 'Mensagens não lidas' : 'Menções' }, count > 99 ? '99+' : count) : null;
+    const direct = isDirectKey(key);
+    const count = direct ? u.unread : u.mentions;
+    return count > 0 ? el('span', { class: 'badge', title: direct ? 'Mensagens não lidas' : 'Menções' }, count > 99 ? '99+' : count) : null;
   }
 
   function renderTextChannels() {
@@ -890,6 +903,47 @@
     if (!list.length) $('#dm-list').append(el('li', { class: 'empty-hint muted' }, 'Clique em alguém na lista de membros para conversar.'));
   }
 
+  /** Seção "Suporte": atendimentos abertos e, sob demanda, os resolvidos. Só aparece para atendentes. */
+  function renderSupport() {
+    $('#support-section').hidden = !state.support;
+    if (!state.support) return;
+    const all = [...state.support.values()].sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    const open = all.filter((c) => c.status === 'open');
+    const resolved = all.filter((c) => c.status !== 'open');
+    const row = (c) => {
+      const key = `s:${c.id}`;
+      const active = state.view?.type === 'support' && state.view.id === c.id;
+      return el('li', {},
+        el('div', {
+          class: `channel dm ${active ? 'active' : ''} ${state.unread.get(key)?.unread ? 'unread' : ''}`,
+          role: 'button', tabindex: 0, dataset: { key }, title: `${c.contact.name} · ${c.app.name}`,
+          onclick: () => openView({ type: 'support', id: c.id }),
+          onkeydown: (e) => e.key === 'Enter' && openView({ type: 'support', id: c.id }),
+        },
+        avatar({ displayName: c.contact.name, color: c.contact.color }, 'xs'),
+        el('span', { class: 'channel-name' }, c.contact.name),
+        badge(key)));
+    };
+    $('#support-list').replaceChildren(...open.map(row));
+    if (!open.length) $('#support-list').append(el('li', { class: 'empty-hint muted' }, 'Nenhum atendimento aberto.'));
+    const toggle = $('#support-resolved-toggle');
+    toggle.hidden = !resolved.length;
+    toggle.textContent = `${state.supportShowResolved ? 'Ocultar' : 'Ver'} resolvidos (${resolved.length})`;
+    toggle.setAttribute('aria-expanded', String(state.supportShowResolved));
+    $('#support-resolved').hidden = !state.supportShowResolved || !resolved.length;
+    $('#support-resolved').replaceChildren(...resolved.map(row));
+  }
+  $('#support-resolved-toggle').addEventListener('click', () => {
+    state.supportShowResolved = !state.supportShowResolved;
+    renderSupport();
+  });
+  $('#support-status').addEventListener('click', () => {
+    const conversation = state.view?.type === 'support' ? state.support?.get(state.view.id) : null;
+    if (!conversation) return;
+    const status = conversation.status === 'open' ? 'resolved' : 'open';
+    state.socket.emit('support:status', { id: conversation.id, status }, (res) => res?.error && toast(res.error, 'error'));
+  });
+
   function renderMembers() {
     const all = [...state.users.values()].sort((a, b) => a.displayName.localeCompare(b.displayName, 'pt-BR'));
     const inVoice = new Map();
@@ -917,7 +971,7 @@
 
   function updateTitle() {
     let total = 0;
-    for (const [key, u] of state.unread) total += key.startsWith('d:') ? u.unread : u.mentions;
+    for (const [key, u] of state.unread) total += isDirectKey(key) ? u.unread : u.mentions;
     const title = total ? `(${total}) UVoz · Unicopag` : 'UVoz · Unicopag';
     if (document.title !== title) document.title = title;
     // App instalado (PWA): contador no ícone da barra de tarefas / tela inicial.
@@ -929,7 +983,11 @@
   /** Atualiza só a linha de uma conversa (negrito + selo), sem refazer as listas. */
   function updateUnreadRow(key) {
     const row = document.querySelector(`#sidebar .channel[data-key="${CSS.escape(key)}"]`);
-    if (!row) { if (key.startsWith('d:')) renderDms(); return; }
+    if (!row) {
+      if (key.startsWith('d:')) renderDms();
+      if (key.startsWith('s:')) renderSupport();
+      return;
+    }
     row.classList.toggle('unread', !!state.unread.get(key)?.unread);
     row.querySelector('.badge')?.remove();
     const b = badge(key);
@@ -970,7 +1028,7 @@
   // Navegação
   // -------------------------------------------------------------------------
   function openView(view) {
-    view = { type: view.type, id: view.type === 'dm' ? Number(view.id) : view.id };
+    view = { type: view.type, id: view.type === 'dm' || view.type === 'support' ? Number(view.id) : view.id };
     const prevKey = viewKey();
     state.view = view;
     storage.set('uvoz:view', JSON.stringify(view));
@@ -993,7 +1051,9 @@
       if (u && u.unread && !state.divider.has(key)) state.divider.set(key, u.lastReadId || 0);
       $('#composer-input').placeholder = view.type === 'dm'
         ? `Mensagem para @${state.users.get(state.dms.get(view.id)?.userId)?.displayName || ''}`
-        : `Conversar em #${channelById(view.id)?.name || ''}`;
+        : view.type === 'support'
+          ? `Responder a ${state.support?.get(view.id)?.contact.name || 'cliente'}`
+          : `Conversar em #${channelById(view.id)?.name || ''}`;
       $('#composer-input').value = storage.get(`uvoz:draft:${key}`) || '';
       autoGrow();
       loadMessages();
@@ -1011,7 +1071,19 @@
     const av = $('#header-avatar');
     av.hidden = true;
     icon.hidden = false;
-    if (v.type === 'dm') {
+    const conversation = v.type === 'support' ? state.support?.get(v.id) : null;
+    const statusButton = $('#support-status');
+    statusButton.hidden = !conversation;
+    if (conversation) {
+      const { contact, app } = conversation;
+      icon.hidden = true;
+      av.hidden = false;
+      av.replaceChildren(avatar({ displayName: contact.name, color: contact.color }, 'xs'));
+      $('#header-title').textContent = contact.name;
+      $('#header-topic').textContent = [app.name, contact.email, `conta ${contact.externalId}`].filter(Boolean).join(' · ');
+      statusButton.textContent = conversation.status === 'open' ? 'Resolver' : 'Reabrir';
+      statusButton.classList.toggle('btn-primary', conversation.status === 'open');
+    } else if (v.type === 'dm') {
       const u = state.users.get(state.dms.get(v.id)?.userId);
       icon.hidden = true;
       av.hidden = false;
@@ -1132,7 +1204,9 @@
   }
 
   const newConv = () => ({ list: [], hasMore: false, loading: false, loaded: false, stale: false, promise: null, queue: [] });
-  const scopeOfKey = (key) => (key.startsWith('d:') ? { type: 'dm', id: Number(key.slice(2)) } : { type: 'channel', id: key.slice(2) });
+  const scopeOfKey = (key) => (key.startsWith('d:') ? { type: 'dm', id: Number(key.slice(2)) }
+    : key.startsWith('s:') ? { type: 'support', id: Number(key.slice(2)) }
+      : { type: 'channel', id: key.slice(2) });
   const msgSel = (id) => `.msg[data-id="${id}"]`;
   const loadingHint = () => el('div', { class: 'messages-loading muted' }, 'Role para cima para ver mensagens antigas…');
   const dividerNode = () => el('div', { class: 'new-divider' }, el('span', {}, 'Novas mensagens'));
@@ -1184,7 +1258,7 @@
   function prefetch(key) {
     if (!state.socket?.connected || state.conv.get(key)?.loaded) return;
     const scope = scopeOfKey(key);
-    if (scope.type === 'dm' ? !state.dms.has(scope.id) : !channelById(scope.id)) return;
+    if (!isValidView(scope)) return;
     fetchConv(scope).catch(() => {});
   }
 
@@ -1270,6 +1344,8 @@
     && m.ts - prev.ts < 5 * 60 * 1000;
 
   function messageActions(m) {
+    // Atendimentos: o cliente já recebeu a mensagem, então não há editar, apagar nem citar.
+    if (m.scope.type === 'support') return null;
     const isMine = m.author.id === state.me.id;
     return el('div', { class: 'msg-actions' },
       isMine && m.text ? el('button', { type: 'button', class: 'icon-btn small', title: 'Editar', 'aria-label': 'Editar mensagem', onclick: () => startEdit(m.id) }, svg(ICONS.edit)) : null,
@@ -1356,6 +1432,9 @@
   }
 
   function messageNode(m, grouped) {
+    if (m.system) {
+      return el('div', { class: 'msg system', dataset: { id: m.id } }, el('span', { title: FULL_FMT.format(m.ts) }, m.text));
+    }
     const cls = `msg ${grouped ? 'grouped' : ''} ${mentionsMe(m) ? 'mentioned' : ''}`;
     const author = state.users.get(m.author.id);
     const name = author?.displayName || m.author.name;
@@ -1374,6 +1453,7 @@
             class: m.author.id && m.author.id !== state.me.id ? 'clickable' : '',
             onclick: m.author.id && m.author.id !== state.me.id ? () => openDm(m.author.id) : null,
           }, name),
+          m.fromContact ? el('small', { class: 'msg-tag' }, 'cliente') : null,
           el('time', { class: 'muted', title: FULL_FMT.format(m.ts) }, fmtTime(m.ts))),
         messageBody(m)),
       messageActions(m));
@@ -1381,6 +1461,14 @@
 
   function welcomeNode() {
     const v = state.view;
+    if (v.type === 'support') {
+      const conversation = state.support?.get(v.id);
+      const contact = conversation?.contact;
+      return el('div', { class: 'messages-welcome' },
+        avatar({ displayName: contact?.name, color: contact?.color }, 'xl'),
+        el('h2', {}, contact?.name || ''),
+        el('p', { class: 'muted' }, `Este é o começo do atendimento.${conversation ? ` O cliente escreve pela aplicação ${conversation.app.name}.` : ''}`));
+    }
     if (v.type === 'dm') {
       const u = state.users.get(state.dms.get(v.id)?.userId);
       return el('div', { class: 'messages-welcome' },
@@ -1495,6 +1583,7 @@
       if (!conv.list.some((x) => x.id === m.id)) { conv.list.push(m); added = true; }
     } else if (conv) conv.queue.push(m); // página a caminho: entra quando ela chegar
     if (m.author.id) clearTyping(key, m.author.id);
+    else if (m.fromContact) clearTyping(key, `contact:${m.author.name}`);
     if (m.scope.type === 'dm') {
       const dm = state.dms.get(m.scope.id);
       if (dm) dm.lastMessageAt = m.ts;
@@ -1503,12 +1592,15 @@
     const isOpen = viewKey() === key;
     const viewing = isOpen && !document.hidden;
     const mine = m.author.id === state.me.id;
+    // Em atendimentos só as mensagens do cliente pedem atenção (não os avisos do sistema nem as respostas de colegas).
+    const direct = m.scope.type === 'dm' || (m.scope.type === 'support' && m.fromContact);
+    const counts = m.scope.type === 'support' ? direct : !m.system;
 
-    if (!mine && !viewing) {
+    if (!mine && !viewing && counts) {
       const u = state.unread.get(key) || { unread: 0, mentions: 0, lastReadId: 0 };
       if (!state.unread.has(key) && conv?.list.length > 1) u.lastReadId = conv.list[conv.list.length - 2].id;
       u.unread += 1;
-      if (m.scope.type === 'dm' || mentionsMe(m)) u.mentions += 1;
+      if (direct || mentionsMe(m)) u.mentions += 1;
       u.lastMessageId = m.id;
       state.unread.set(key, u);
       if (isOpen && !state.divider.has(key)) state.divider.set(key, u.lastReadId);
@@ -1534,9 +1626,10 @@
 
     if (mine) return;
     if (viewing) { markRead(); return; }
+    if (!counts) return;
     updateUnreadRow(key);
     updateTitle();
-    if (m.scope.type === 'dm' || mentionsMe(m)) notify(m);
+    if (direct || mentionsMe(m)) notify(m);
   }
 
   function onMessageUpdated(m) {
@@ -1610,7 +1703,7 @@
   const MAX_MESSAGE_ATTACHMENTS = 10 * 1024 * 1024;
   const MAX_MESSAGE_IMAGES = 5;
   const ALLOWED_ATTACHMENT_EXTENSIONS = new Set([
-    'txt', 'csv', 'xls', 'xlsx', 'ods', 'doc', 'docx', 'odt', 'ppt', 'pptx',
+    'pdf', 'txt', 'csv', 'xls', 'xlsx', 'ods', 'doc', 'docx', 'odt', 'ppt', 'pptx',
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp',
     'mp4', 'webm', 'mov', 'm4v', 'avi', 'mkv',
   ]);
@@ -1710,7 +1803,7 @@
   input.addEventListener('blur', () => setTimeout(closeMentionPopup, 150));
   input.addEventListener('keydown', (e) => {
     if (mentionState.open && handleMentionKey(e)) return;
-    if (e.key === 'ArrowUp' && !input.value) {
+    if (e.key === 'ArrowUp' && !input.value && state.view?.type !== 'support') {
       const conv = state.conv.get(viewKey());
       const mine = conv?.list.slice().reverse().find((m) => m.author.id === state.me.id);
       if (mine) { e.preventDefault(); startEdit(mine.id); }
@@ -1841,6 +1934,7 @@
   }
 
   function updateMentionPopup() {
+    if (state.view?.type === 'support') return closeMentionPopup(); // o texto vai para um cliente
     const caret = input.selectionStart;
     const before = input.value.slice(0, caret);
     const m = before.match(/(^|\s)@([\p{L}\p{N}._-]{0,32})$/u);
@@ -1900,12 +1994,14 @@
   }
 
   // ----- Digitando… ----------------------------------------------------------
-  function onTyping({ scope, userId }) {
+  // Quem digita é um usuário (userId) ou, em atendimentos, o cliente (identificado por "contact:<nome>").
+  function onTyping({ scope, userId, name }) {
     const key = keyOf(scope);
+    const who = userId ?? `contact:${name}`;
     if (!state.typing.has(key)) state.typing.set(key, new Map());
     const map = state.typing.get(key);
-    clearTimeout(map.get(userId));
-    map.set(userId, setTimeout(() => clearTyping(key, userId), 4000));
+    clearTimeout(map.get(who));
+    map.set(who, setTimeout(() => clearTyping(key, who), 4000));
     renderTyping();
   }
   function clearTyping(key, userId) {
@@ -1916,7 +2012,8 @@
     renderTyping();
   }
   function renderTyping() {
-    const names = [...(state.typing.get(viewKey())?.keys() || [])].map(userName);
+    const names = [...(state.typing.get(viewKey())?.keys() || [])]
+      .map((who) => (typeof who === 'string' ? who.slice('contact:'.length) : userName(who)));
     $('#typing').textContent = !names.length ? ''
       : names.length === 1 ? `${names[0]} está digitando…`
       : names.length <= 3 ? `${names.join(', ')} estão digitando…` : 'Várias pessoas estão digitando…';
@@ -1935,7 +2032,8 @@
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (!document.hidden && document.hasFocus()) return;
     const author = state.users.get(m.author.id)?.displayName || m.author.name;
-    const where = m.scope.type === 'dm' ? 'mensagem direta' : `#${channelById(m.scope.id)?.name || ''}`;
+    const where = m.scope.type === 'dm' ? 'mensagem direta'
+      : m.scope.type === 'support' ? 'suporte' : `#${channelById(m.scope.id)?.name || ''}`;
     try {
       const n = new Notification(`${author} (${where})`, { body: m.text.slice(0, 180), tag: keyOf(m.scope) });
       n.onclick = () => { window.focus(); openView(m.scope); n.close(); };
