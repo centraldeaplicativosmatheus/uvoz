@@ -239,6 +239,26 @@ Para rodar em desenvolvimento:
 cd desktop && npm install && npm start
 ```
 
+## Widget de suporte (em construção)
+
+A pasta `public/widget/` traz o chat de suporte que será instalado nas aplicações da Unicopag, no visual do
+painel. **Por enquanto só a interface existe**: o servidor ainda não tem o namespace `/widget` do Socket.io nem as
+rotas `/api/widget/attachments`, então o widget só funciona no modo de demonstração. O contrato esperado do
+servidor está descrito no topo de `public/widget/widget.js`.
+
+Para ver funcionando com um servidor simulado, suba o UVoz e abra `/widget/demo.html`.
+
+Instalação na aplicação do cliente (a conta precisa estar logada; o token é gerado e assinado pelo servidor da
+aplicação):
+
+```html
+<script src="https://uvoz.on-forge.com/widget/loader.js" data-app="unicopag" data-token="TOKEN_ASSINADO" async></script>
+```
+
+Em aplicações de página única, carregue o script sem os atributos `data-` e use
+`UVozWidget.boot({ app, token, getToken })` ao entrar e `UVozWidget.shutdown()` ao sair da conta. As demais
+opções (`side`, `offsetX`, `offsetY`, `launcher`) estão documentadas em `public/widget/loader.js`.
+
 ## Estrutura
 
 ```
@@ -254,6 +274,7 @@ public/index.html  Interface
 public/styles.css  Tema escuro estilo Discord
 public/app.js      Interface: login, canais, DMs, menções, chat, palco de vídeo
 public/manifest.webmanifest, public/icons/   App instalável (PWA)
+public/widget/     Widget de suporte: loader.js (instalador), frame.html + widget.css + widget.js (chat), demo
 desktop/           App para Windows (Electron): janela, bandeja, atalho global, seletor de tela
 public/rtc.js      WebRTC: conexões P2P (perfect negotiation), recuperação automática, supressão de ruído, detector de fala
 ```

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Widget de suporte · página de teste</title>
+  <style>
+    body { margin: 0; min-height: 100vh; background: #0a1830; color: #f3f6fb; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+    main { max-width: 720px; padding: 48px 24px; }
+    h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: -0.02em; }
+    p { margin: 0 0 20px; color: #a9b8d0; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; }
+    a { padding: 8px 16px; border: 1px solid #2c446b; border-radius: 999px; background: #121f36; color: inherit; text-decoration: none; font-weight: 500; }
+    a[aria-current] { background: #db3240; border-color: #db3240; }
+    .card { margin-top: 32px; height: 220px; border: 1px solid #1e3251; border-radius: 20px; background: #0d2241; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Widget de suporte</h1>
+    <p>Página de teste com um servidor simulado. Nenhuma mensagem sai deste navegador.</p>
+    <nav aria-label="Cenários">
+      <a href="?demo=1">Primeira conversa</a>
+      <a href="?demo=conversa">Conversa em andamento</a>
+      <a href="?demo=resposta">Resposta com o chat fechado</a>
+      <a href="?demo=offline">Fora do horário</a>
+    </nav>
+    <div class="card"></div>
+  </main>
+
+  <script src="loader.js"></script>
+  <script>
+    const query = new URLSearchParams(location.search);
+    const scenario = query.get('demo') || '1';
+    document.querySelector(`a[href="?demo=${scenario}"]`)?.setAttribute('aria-current', 'page');
+    UVozWidget.boot({ app: 'demo', demo: scenario, launcher: query.get('launcher') || 'light' });
+  </script>
+</body>
+</html>

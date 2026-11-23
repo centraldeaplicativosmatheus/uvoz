@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex" />
+  <meta name="color-scheme" content="dark" />
+  <title>Suporte Unicopag</title>
+  <link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="widget.css" />
+</head>
+<body>
+  <div class="w">
+    <header class="w-head">
+      <div class="w-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>
+      </div>
+      <div class="w-head-text">
+        <h1>Suporte Unicopag</h1>
+        <p id="status" class="w-status"><span class="w-dot"></span><span id="status-text">Conectando…</span></p>
+      </div>
+      <button id="close" type="button" class="w-icon-btn" aria-label="Fechar o chat" title="Fechar">
+        <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </header>
+
+    <div id="banner" class="w-banner" role="status" hidden></div>
+
+    <main id="scroll" class="w-scroll">
+      <button id="older" type="button" class="w-older" hidden>Ver mensagens anteriores</button>
+
+      <section id="welcome" class="w-welcome" hidden>
+        <h2 id="welcome-title">Olá. Como podemos ajudar?</h2>
+        <p id="welcome-text">Escreva sua dúvida e nossa equipe responde por aqui.</p>
+        <div id="topics" class="w-topics" hidden></div>
+      </section>
+
+      <ol id="messages" class="w-list" aria-live="polite" aria-label="Conversa com o suporte"></ol>
+
+      <div id="typing" class="w-typing" hidden>
+        <span class="w-typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span id="typing-text"></span>
+      </div>
+    </main>
+
+    <button id="jump" type="button" class="w-jump" hidden>
+      Novas mensagens
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+    </button>
+
+    <form id="composer" class="w-composer" autocomplete="off">
+      <ul id="staged" class="w-staged" hidden></ul>
+      <div class="w-field">
+        <button id="attach" type="button" class="w-icon-btn" aria-label="Anexar arquivo" title="Anexar arquivo" hidden>
+          <svg viewBox="0 0 24 24"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.9-8.9a3.7 3.7 0 0 1 5.2 5.2l-8.9 8.9a1.8 1.8 0 0 1-2.6-2.6l8.2-8.2"/></svg>
+        </button>
+        <textarea id="input" rows="1" maxlength="4000" placeholder="Escreva sua mensagem" aria-label="Mensagem" disabled></textarea>
+        <button id="send" type="submit" class="w-send" aria-label="Enviar mensagem" title="Enviar" disabled>
+          <svg viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></svg>
+        </button>
+      </div>
+      <input id="file" type="file" multiple hidden
+        accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.csv,.xls,.xlsx,.doc,.docx" />
+    </form>
+  </div>
+
+  <script src="widget.js" defer></script>
+</body>
+</html>
