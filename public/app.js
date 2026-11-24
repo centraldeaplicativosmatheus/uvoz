@@ -594,7 +594,8 @@
     state.token = token;
     // "view" vai no handshake para o servidor já devolver as mensagens da conversa aberta junto do init.
     const socket = (state.socket = io({
-      auth: (cb) => cb({ token: state.token, view: viewScope() || savedView() }),
+      // "client" diz ao servidor qual formato de dados este app.js entende (ver CLIENT_VERSION no servidor).
+      auth: (cb) => cb({ token: state.token, view: viewScope() || savedView(), client: 3 }),
       transports: ['websocket', 'polling'],
     }));
 
@@ -728,9 +729,10 @@
     userIdx = null;
     state.voice = new Map(data.voice.map((v) => [v.socketId, v]));
     state.dms = new Map(data.dms.map((d) => [d.id, d]));
-    state.support = data.support ? new Map(data.support.conversations.map((c) => [c.id, c])) : null;
-    state.supportCanAnswer = !!data.support?.canAnswer;
-    state.supportAgentIds = data.support?.agentIds || [];
+    const queue = data.supportQueue;
+    state.support = queue ? new Map(queue.conversations.map((c) => [c.id, c])) : null;
+    state.supportCanAnswer = !!queue?.canAnswer;
+    state.supportAgentIds = queue?.agentIds || [];
     state.unread = new Map(Object.entries(data.unread));
 
     // Conversas: mantém só a que está aberta (as outras recarregam sob demanda) e a marca para

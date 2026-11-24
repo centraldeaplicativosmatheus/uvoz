@@ -184,6 +184,9 @@ const emptyMedia = () => ({ mic: false, cam: false, screen: false, cameraStreamI
 const support = new SupportStore(pool, store);
 const widget = io.of('/widget'); // clientes; isolado do namespace padrão, que é só da equipe
 const SUPPORT_ROOM = 'support'; // sockets dos atendentes, no namespace padrão
+// Versão do formato do "init" que o app.js desta versão entende (enviada por ele na conexão).
+// Abas abertas antes de um deploy continuam com o app.js antigo até serem recarregadas.
+const CLIENT_VERSION = 3;
 const contactRoom = (appId, externalId) => `contact:${appId}:${externalId}`;
 const roomOfConversation = (conversation) => contactRoom(conversation.app.id, conversation.contact.externalId);
 const firstName = (name) => String(name || '').trim().split(/\s+/)[0] || 'Suporte';
@@ -814,9 +817,11 @@ io.on('connection', async (socket) => {
       users: [...store.users.values()].map((u) => ({ ...u, online: isOnline(u.id), lastSeen: store.lastSeenAt.get(u.id) || null })),
       voice: [...voiceStates.values()],
       dms,
+      // Formato antigo (lista só para quem atende), mantido para abas abertas antes da fila para toda a equipe.
+      support: isSupportAgent ? supportConversations : null,
       // null quando o suporte a clientes não está em uso. Só quem atende (canAnswer) recebe os dados de
       // contato e consegue abrir as conversas; os demais veem a fila.
-      support: supportConversations && {
+      supportQueue: supportConversations && {
         canAnswer: isSupportAgent,
         agentIds: [...support.agents],
         conversations: isSupportAgent ? supportConversations : supportConversations.map((c) => support.queueItem(c)),
@@ -826,6 +831,10 @@ io.on('connection', async (socket) => {
       iceServers: iceServersFor(socket.id),
       maxPeersPerRoom: MAX_PEERS_PER_ROOM,
     });
+    // Aba de atendente carregada antes desta versão: funciona no formato antigo, mas só vê a fila nova ao recarregar.
+    if (isSupportAgent && !(Number(socket.handshake.auth?.client) >= CLIENT_VERSION)) {
+      socket.emit('fatal', { error: 'O UVoz foi atualizado. Recarregue a página (Ctrl+R) para ver a fila de atendimento.' });
+    }
   } catch (err) {
     console.error('[uvoz] erro ao iniciar sessão:', err);
     socket.emit('fatal', { error: 'Não foi possível carregar seus dados.' });
