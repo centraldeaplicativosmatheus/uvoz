@@ -51,7 +51,9 @@
     users: new Map(), // id -> { id, username, displayName, color, avatarVersion, online, lastSeen }
     voice: new Map(), // socketId -> { socketId, userId, channelId, media }
     dms: new Map(), // dmId -> { id, userId, lastMessageAt }
-    support: null, // atendimentos a clientes: id -> { id, status, lastMessageAt, contact, app }; null para quem não atende
+    support: null, // fila de atendimento a clientes: id -> { id, status, lastMessageAt, resolvedCount, contact, app }; null se não está em uso
+    supportCanAnswer: false, // só quem atende abre as conversas; os demais veem a fila
+    supportAgentIds: [],
     supportShowResolved: false,
     unread: new Map(), // 'c:geral' | 'd:12' | 's:7' -> { unread, mentions, lastReadId }
     view: null, // { type: 'channel'|'voice'|'dm'|'support', id }
@@ -643,6 +645,7 @@
       u.online = online;
       if (lastSeen) u.lastSeen = lastSeen;
       renderMembers(); renderDms(); renderHeader();
+      if (state.supportAgentIds.includes(userId)) renderSupport();
     });
     socket.on('user:new', (u) => { state.users.set(u.id, u); userIdx = null; renderMembers(); });
     socket.on('user:updated', onUserUpdated);
@@ -725,7 +728,9 @@
     userIdx = null;
     state.voice = new Map(data.voice.map((v) => [v.socketId, v]));
     state.dms = new Map(data.dms.map((d) => [d.id, d]));
-    state.support = data.support ? new Map(data.support.map((c) => [c.id, c])) : null;
+    state.support = data.support ? new Map(data.support.conversations.map((c) => [c.id, c])) : null;
+    state.supportCanAnswer = !!data.support?.canAnswer;
+    state.supportAgentIds = data.support?.agentIds || [];
     state.unread = new Map(Object.entries(data.unread));
 
     // Conversas: mantém só a que está aberta (as outras recarregam sob demanda) e a marca para
@@ -799,7 +804,7 @@
 
   function isValidView(v) {
     if (v.type === 'dm') return state.dms.has(Number(v.id));
-    if (v.type === 'support') return !!state.support?.has(Number(v.id));
+    if (v.type === 'support') return state.supportCanAnswer && !!state.support?.has(Number(v.id));
     const c = channelById(v.id);
     return !!c && ((v.type === 'voice') === (c.type === 'voice'));
   }
@@ -903,32 +908,64 @@
     if (!list.length) $('#dm-list').append(el('li', { class: 'empty-hint muted' }, 'Clique em alguém na lista de membros para conversar.'));
   }
 
-  /** Seção "Suporte": atendimentos abertos e, sob demanda, os resolvidos. Só aparece para atendentes. */
+  /**
+   * Seção "Atendimento": quem atende, os clientes em atendimento e, sob demanda, os já atendidos.
+   * Toda a equipe vê a fila; só quem atende (supportCanAnswer) abre as conversas.
+   */
   function renderSupport() {
     $('#support-section').hidden = !state.support;
     if (!state.support) return;
+    const canAnswer = state.supportCanAnswer;
     const all = [...state.support.values()].sort((a, b) => b.lastMessageAt - a.lastMessageAt);
     const open = all.filter((c) => c.status === 'open');
     const resolved = all.filter((c) => c.status !== 'open');
+
+    $('#support-agents').replaceChildren(...state.supportAgentIds.map((id) => state.users.get(id)).filter(Boolean).map((u) => {
+      const isMe = u.id === state.me.id;
+      return el('li', {
+        class: `support-agent ${isMe ? '' : 'clickable'}`,
+        title: isMe ? 'Você atende os clientes' : `Enviar mensagem para ${u.displayName}`,
+        onclick: isMe ? null : () => openDm(u.id),
+      },
+      avatarWithPresence(u, 'xs'),
+      el('span', { class: 'channel-name' }, u.displayName),
+      el('small', { class: 'muted' }, 'atende'));
+    }));
+
     const row = (c) => {
       const key = `s:${c.id}`;
+      const isOpen = c.status === 'open';
       const active = state.view?.type === 'support' && state.view.id === c.id;
+      const done = c.resolvedCount || 0;
+      const history = done ? `${done} ${done === 1 ? 'atendimento concluído' : 'atendimentos concluídos'}` : 'primeiro atendimento';
+      const access = canAnswer
+        ? { role: 'button', tabindex: 0,
+          onclick: () => openView({ type: 'support', id: c.id }),
+          onkeydown: (e) => e.key === 'Enter' && openView({ type: 'support', id: c.id }) }
+        : {};
       return el('li', {},
         el('div', {
-          class: `channel dm ${active ? 'active' : ''} ${state.unread.get(key)?.unread ? 'unread' : ''}`,
-          role: 'button', tabindex: 0, dataset: { key }, title: `${c.contact.name} · ${c.app.name}`,
-          onclick: () => openView({ type: 'support', id: c.id }),
-          onkeydown: (e) => e.key === 'Enter' && openView({ type: 'support', id: c.id }),
+          class: `channel dm support-row ${isOpen ? '' : 'resolved'} ${canAnswer ? '' : 'readonly'} ${active ? 'active' : ''} ${state.unread.get(key)?.unread ? 'unread' : ''}`,
+          dataset: { key },
+          title: `${c.contact.name} · ${c.app.name} · ${history}${canAnswer ? '' : ' · só quem atende abre a conversa'}`,
+          ...access,
         },
         avatar({ displayName: c.contact.name, color: c.contact.color }, 'xs'),
         el('span', { class: 'channel-name' }, c.contact.name),
-        badge(key)));
+        badge(key),
+        !isOpen && done ? el('span', { class: 'support-count' }, done > 99 ? '99+' : done) : null));
     };
+
+    $('#support-open-label').textContent = `Em atendimento — ${open.length}`;
     $('#support-list').replaceChildren(...open.map(row));
-    if (!open.length) $('#support-list').append(el('li', { class: 'empty-hint muted' }, 'Nenhum atendimento aberto.'));
+    if (!open.length) $('#support-list').append(el('li', { class: 'empty-hint muted' }, 'Ninguém em atendimento agora.'));
+
+    // O servidor envia os atendidos mais recentes; acima desse limite a contagem é "N+".
     const toggle = $('#support-resolved-toggle');
     toggle.hidden = !resolved.length;
-    toggle.textContent = `${state.supportShowResolved ? 'Ocultar' : 'Ver'} resolvidos (${resolved.length})`;
+    toggle.replaceChildren(
+      el('span', { class: 'support-caret' }, state.supportShowResolved ? '▾' : '▸'),
+      `Já atendidos — ${resolved.length >= 50 ? '50+' : resolved.length}`);
     toggle.setAttribute('aria-expanded', String(state.supportShowResolved));
     $('#support-resolved').hidden = !state.supportShowResolved || !resolved.length;
     $('#support-resolved').replaceChildren(...resolved.map(row));

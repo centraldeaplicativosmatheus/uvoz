@@ -409,11 +409,23 @@ html, body { overscroll-behavior: none; }
   .channel-delete, .row-action, .tile-actions { opacity: 1; }
 }
 
-/* ---------- Suporte a clientes ---------- */
-.support-resolved-toggle { display: block; margin: 2px 0 0; padding: 4px 8px; border: 0; border-radius: 4px; background: none; color: var(--text-3); font-size: 12px; cursor: pointer; }
+/* ---------- Atendimento a clientes ---------- */
+.support-agent { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 4px; color: var(--text-2); }
+.support-agent.clickable { cursor: pointer; }
+.support-agent.clickable:hover { background: var(--bg-hover); color: var(--text); }
+.support-agent small { font-size: 11px; }
+.support-agent .avatar-wrap .presence { width: 10px; height: 10px; border-width: 2px; right: -3px; bottom: -3px; }
+.support-label { display: block; width: 100%; margin: 0; padding: 8px 8px 2px; border: 0; background: none; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-3); }
+.support-resolved-toggle { cursor: pointer; border-radius: 4px; }
 .support-resolved-toggle:hover { color: var(--text-2); }
 .support-resolved-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-#support-resolved .channel { opacity: .75; }
+.support-caret { display: inline-block; width: 12px; }
+.support-row.resolved { color: var(--text-3); }
+.support-row.resolved .avatar { filter: grayscale(1); opacity: .5; }
+.support-row.readonly, .support-row.readonly:hover { cursor: default; background: transparent; }
+.support-row.readonly:not(.resolved), .support-row.readonly:not(.resolved):hover { color: var(--text-2); }
+.support-row.readonly.resolved:hover { color: var(--text-3); }
+.support-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--bg-active); color: var(--text-2); font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; flex: none; }
 .support-status { padding: 6px 12px; font-size: 13px; flex: none; }
 .msg.system { justify-content: center; margin-top: 14px; padding: 2px 16px; font-size: 12px; color: var(--text-3); text-align: center; }
 .msg-tag { padding: 1px 6px; border-radius: 4px; background: var(--bg-active); color: var(--text-2); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }

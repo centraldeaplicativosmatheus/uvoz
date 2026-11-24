@@ -96,11 +96,13 @@
         <span>Unicopag</span>
       </header>
       <div class="sidebar-scroll">
-        <!-- Atendimentos a clientes: só aparece para quem atende o suporte -->
+        <!-- Atendimento a clientes: a fila aparece para toda a equipe; só quem atende abre as conversas -->
         <div id="support-section" hidden>
-          <div class="section-title"><span>Suporte</span></div>
+          <div class="section-title"><span>Atendimento</span></div>
+          <ul id="support-agents" class="channel-list" aria-label="Quem atende"></ul>
+          <div id="support-open-label" class="support-label"></div>
           <ul id="support-list" class="channel-list"></ul>
-          <button id="support-resolved-toggle" type="button" class="support-resolved-toggle" aria-controls="support-resolved" hidden></button>
+          <button id="support-resolved-toggle" type="button" class="support-label support-resolved-toggle" aria-controls="support-resolved" hidden></button>
           <ul id="support-resolved" class="channel-list" hidden></ul>
         </div>
 

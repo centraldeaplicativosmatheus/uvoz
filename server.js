@@ -5,7 +5,7 @@
  * - MySQL guarda usuários, sessões, canais, mensagens, DMs, menções e leitura.
  * - Socket.io cuida de presença, mensagens em tempo real e sinalização WebRTC.
  * - O namespace "/widget" do Socket.io atende os clientes do chat de suporte (public/widget);
- *   as conversas deles aparecem na seção "Suporte" para os atendentes.
+ *   as conversas deles aparecem na seção "Atendimento": a fila para toda a equipe, o conteúdo só para quem atende.
  * - Áudio, vídeo e tela trafegam P2P entre os navegadores (com TURN quando preciso).
  */
 const fs = require('fs');
@@ -205,6 +205,15 @@ function broadcastSupportTeam() {
   if (snapshot === lastTeamState) return;
   lastTeamState = snapshot;
   widget.emit('team:updated', team);
+}
+
+/**
+ * Avisa a equipe de que um atendimento mudou. Quem atende recebe a conversa completa; os demais
+ * recebem só o que aparece na fila (nome do cliente e situação), sem dados de contato.
+ */
+function emitSupportUpsert(conversation) {
+  io.to(SUPPORT_ROOM).emit('support:upsert', conversation);
+  io.except(SUPPORT_ROOM).emit('support:upsert', support.queueItem(conversation));
 }
 
 /** Mensagem no formato do widget: sem dados internos da equipe além do primeiro nome de quem respondeu. */
@@ -529,7 +538,8 @@ async function resolveScope(scope, userId) {
     return { type: 'dm', id: dm.id, dm };
   }
   if (scope?.type === 'support') {
-    // Hoje todo atendente vê todos os atendimentos; o responsável (assigneeId) é para o encaminhamento futuro.
+    // Toda a equipe vê a fila, mas só quem atende abre as conversas. Hoje todo atendente vê todos os
+    // atendimentos; o responsável (assigneeId) é para o encaminhamento futuro.
     if (!support.isAgent(userId)) return null;
     const conversation = await support.getConversation(scope.id);
     return conversation ? { type: 'support', id: conversation.id, conversation } : null;
@@ -646,7 +656,7 @@ io.on('connection', async (socket) => {
     if (message.error) return message;
     if (scope.type === 'support') {
       const conversation = await support.getConversation(scope.id);
-      io.to(SUPPORT_ROOM).emit('support:upsert', conversation);
+      emitSupportUpsert(conversation);
       widget.to(roomOfConversation(conversation)).emit('message:new', toWidgetMessage(message));
     }
     if (scope.type === 'dm') {
@@ -719,7 +729,7 @@ io.on('connection', async (socket) => {
     const changed = await support.setStatus(scope.id, status, userId);
     const conversation = await support.getConversation(scope.id);
     if (changed) {
-      io.to(SUPPORT_ROOM).emit('support:upsert', conversation);
+      emitSupportUpsert(conversation);
       if (status === 'resolved') await supportSystemMessage(conversation, 'Atendimento encerrado');
     }
     return { conversation };
@@ -787,12 +797,13 @@ io.on('connection', async (socket) => {
   // ----- Estado inicial ------------------------------------------------------
   // Enviado depois de registrar os handlers: o que o cliente emitir logo após conectar não se perde.
   try {
+    // A fila de atendimento aparece para toda a equipe quando há alguém definido como atendente.
     const [dms, supportConversations] = await Promise.all([
       store.listDms(userId),
-      isSupportAgent ? support.listConversations() : null,
+      support.agents.size ? support.listConversations() : null,
     ]);
     const [unread, initial, ownEmail] = await Promise.all([
-      store.unreadSummary(userId, dms, (supportConversations || []).map((c) => c.id)),
+      store.unreadSummary(userId, dms, isSupportAgent ? supportConversations.map((c) => c.id) : []),
       initialMessages(socket.handshake.auth?.view, userId),
       store.getUserEmail(userId),
     ]);
@@ -803,7 +814,13 @@ io.on('connection', async (socket) => {
       users: [...store.users.values()].map((u) => ({ ...u, online: isOnline(u.id), lastSeen: store.lastSeenAt.get(u.id) || null })),
       voice: [...voiceStates.values()],
       dms,
-      support: supportConversations, // null para quem não atende o suporte
+      // null quando o suporte a clientes não está em uso. Só quem atende (canAnswer) recebe os dados de
+      // contato e consegue abrir as conversas; os demais veem a fila.
+      support: supportConversations && {
+        canAnswer: isSupportAgent,
+        agentIds: [...support.agents],
+        conversations: isSupportAgent ? supportConversations : supportConversations.map((c) => support.queueItem(c)),
+      },
       unread,
       initial, // mensagens da conversa que o cliente vai abrir (economiza uma ida e volta)
       iceServers: iceServersFor(socket.id),
@@ -889,7 +906,7 @@ widget.on('connection', async (socket) => {
     if (created.duplicate) return { message: widgetMessage }; // reenvio de algo que já tinha chegado
 
     const conversation = await support.getConversation(created.conversationId);
-    io.to(SUPPORT_ROOM).emit('support:upsert', conversation); // antes da mensagem: a conversa pode ser nova
+    emitSupportUpsert(conversation); // antes da mensagem: a conversa pode ser nova
     io.to(SUPPORT_ROOM).emit('message:new', message);
     socket.to(room).emit('message:new', widgetMessage); // outras abas do mesmo cliente
     if (!isOpen(SUPPORT_HOURS) && await support.claimAutoNotice(conversation.id)) {

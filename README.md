@@ -6,7 +6,7 @@ Plataforma de comunicação interna com:
 - **Canais de texto**: histórico no banco com rolagem infinita, "fulano está digitando…", links clicáveis, editar/apagar as próprias mensagens.
 - **Mensagens diretas (DM)**: conversa privada 1:1 — clique em alguém na lista de membros ou no **+** de "Mensagens diretas".
 - **Anexos e fotos de perfil**: envie imagens e arquivos em conversas; clique em uma imagem para ampliá-la e edite sua foto de perfil com recorte quadrado, visível para os demais usuários.
-- **Suporte a clientes**: widget de chat para as aplicações da Unicopag; as conversas chegam na seção "Suporte" de quem atende (veja "Suporte a clientes (widget)").
+- **Suporte a clientes**: widget de chat para as aplicações da Unicopag; as conversas chegam na seção "Atendimento", com a fila visível para toda a equipe (veja "Suporte a clientes (widget)").
 - **Redefinição de senha**: usuários podem redefinir a senha informando o nome de usuário e um código mestre configurado no servidor.
 - **Respostas**: responda a qualquer mensagem, inclusive às que contêm somente anexos; a conversa mostra uma prévia da mensagem original junto da resposta.
 - **Menções**: `@usuario`, `@todos`/`@everyone` com autocompletar (setas + Enter/Tab), destaque da mensagem e contador vermelho de menções no canal.
@@ -247,8 +247,11 @@ cd desktop && npm install && npm start
 ## Suporte a clientes (widget)
 
 Um chat de suporte, no visual do painel da Unicopag, que se instala nas aplicações da empresa. O cliente logado
-escreve pelo widget e a conversa aparece na seção **Suporte** do UVoz, visível só para quem atende.
+escreve pelo widget e a conversa aparece na seção **Atendimento** do UVoz.
 
+- **Toda a equipe vê a fila**: quem atende, os clientes em atendimento e os já atendidos (em cinza, com o número
+  de atendimentos concluídos). **Só quem atende abre as conversas**; os demais não recebem mensagens, e-mail nem
+  identificador dos clientes.
 - Cada cliente tem **uma conversa**. **Resolver** encerra o atendimento (o cliente vê "Atendimento encerrado");
   a próxima mensagem dele, ou uma resposta da equipe, reabre a mesma conversa com o histórico inteiro.
 - O cliente vê só o primeiro nome de quem respondeu. Não lidas, notificações e anexos funcionam como nas DMs.

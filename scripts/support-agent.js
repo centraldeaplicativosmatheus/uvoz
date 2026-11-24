@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Define quem atende o suporte (vê a seção "Suporte" e responde aos clientes).
+ * Define quem atende os clientes (abre as conversas da seção "Atendimento" e responde).
  * Uso (na pasta do site):
  *   node scripts/support-agent.js <usuario>             torna atendente
  *   node scripts/support-agent.js <usuario> --remover   deixa de ser atendente
