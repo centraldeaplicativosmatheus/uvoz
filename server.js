@@ -206,7 +206,7 @@ const INBOXES = {
 };
 // Versão do formato do "init" que o app.js desta versão entende (enviada por ele na conexão).
 // Abas abertas antes de um deploy continuam com o app.js antigo até serem recarregadas.
-const CLIENT_VERSION = 4;
+const CLIENT_VERSION = 5;
 const contactRoom = (appId, externalId) => `contact:${appId}:${externalId}`;
 const roomOfConversation = (conversation) => contactRoom(conversation.app.id, conversation.contact.externalId);
 const firstName = (name) => String(name || '').trim().split(/\s+/)[0] || 'Suporte';
@@ -239,16 +239,29 @@ function broadcastSupportTeam() {
  */
 function emitSupportUpsert(conversation) {
   const box = INBOXES[conversation.inbox];
-  io.to(box.room).emit(box.event, conversation);
-  io.except(box.room).emit(box.event, support.queueItem(conversation));
+  const rooms = conversationRooms(conversation);
+  io.to(rooms).emit(box.event, conversation);
+  io.except(rooms).emit(box.event, support.queueItem(conversation));
+}
+
+/**
+ * Salas de quem acompanha a conversa por dentro: quem atende a fila e o responsável por ela, que pode
+ * ser alguém de fora da fila quando a conversa foi transferida.
+ */
+function conversationRooms(conversation) {
+  const rooms = [INBOXES[conversation.inbox].room];
+  if (conversation.assigneeId) rooms.push(`user:${conversation.assigneeId}`);
+  return rooms;
 }
 
 /**
  * Leads novos alternam entre quem atende, de preferência entre quem está online. O responsável é
- * mantido enquanto continuar atendendo leads. Devolve a conversa, atualizada se mudou.
+ * mantido enquanto continuar atendendo leads ou se recebeu a conversa por transferência. Devolve a
+ * conversa, atualizada se mudou.
  */
 async function assignLead(conversation) {
-  if (conversation.assigneeId && support.isAgent(conversation.assigneeId, 'leads')) return conversation;
+  // Quem recebeu a conversa por transferência continua com ela, mesmo sem atender a fila de leads.
+  if (conversation.assigneeId && (conversation.assignedBy || support.isAgent(conversation.assigneeId, 'leads'))) return conversation;
   const agents = [...support.agents.leads];
   const online = agents.filter(isOnline);
   const userId = await support.nextLeadAgent(online.length ? online : agents);
@@ -271,7 +284,7 @@ function toWidgetMessage(message, clientId) {
 async function supportSystemMessage(conversation, text) {
   const id = await support.createSystemMessage(conversation.id, text);
   const { message } = await store.getMessage(id);
-  io.to(INBOXES[conversation.inbox].room).emit('message:new', message);
+  io.to(conversationRooms(conversation)).emit('message:new', message);
   widget.to(roomOfConversation(conversation)).emit('message:new', toWidgetMessage(message));
 }
 
@@ -292,7 +305,7 @@ async function receiveContactMessage({ clientApp, identity, text, attachmentIds,
   const box = INBOXES[conversation.inbox];
   const room = roomOfConversation(conversation);
   emitSupportUpsert(conversation); // antes da mensagem: a conversa pode ser nova
-  io.to(box.room).emit('message:new', message);
+  io.to(conversationRooms(conversation)).emit('message:new', message);
   (socket ? socket.to(room) : widget.to(room)).emit('message:new', result.message);
   if (!isOpen(box.hours) && await support.claimAutoNotice(conversation.id)) {
     await supportSystemMessage(conversation,
@@ -605,10 +618,10 @@ async function resolveScope(scope, userId) {
     return { type: 'dm', id: dm.id, dm };
   }
   if (scope?.type === 'support') {
-    // Toda a equipe vê as filas, mas só quem atende cada uma abre as conversas dela. Quem atende vê
-    // todas as conversas da fila; nos leads, o responsável (assigneeId) indica de quem é a vez.
+    // Toda a equipe vê as filas, mas só abre a conversa quem atende a fila dela ou quem a recebeu por
+    // transferência. O responsável (assigneeId) indica de quem é a vez.
     const conversation = await support.getConversation(scope.id);
-    if (!conversation || !support.isAgent(userId, conversation.inbox)) return null;
+    if (!support.canAccess(userId, conversation)) return null;
     return { type: 'support', id: conversation.id, conversation };
   }
   return null;
@@ -617,7 +630,7 @@ async function resolveScope(scope, userId) {
 /** Envia um evento para quem pode ver o scope. */
 function emitToScope(scope, event, payload) {
   if (scope.type === 'channel') return io.emit(event, payload);
-  if (scope.type === 'support') return io.to(INBOXES[scope.conversation.inbox].room).emit(event, payload);
+  if (scope.type === 'support') return io.to(conversationRooms(scope.conversation)).emit(event, payload);
   const [a, b] = store.dmMembers(scope.dm);
   io.to(`user:${a}`).to(`user:${b}`).emit(event, payload);
 }
@@ -722,6 +735,7 @@ io.on('connection', async (socket) => {
     if (message.error) return message;
     if (scope.type === 'support') {
       const conversation = await support.getConversation(scope.id);
+      scope.conversation = conversation; // a mensagem pode ter reaberto a conversa
       emitSupportUpsert(conversation);
       widget.to(roomOfConversation(conversation)).emit('message:new', toWidgetMessage(message));
     }
@@ -778,7 +792,7 @@ io.on('connection', async (socket) => {
     const payload = { scope: { type: scope.type, id: scope.id }, userId };
     if (scope.type === 'channel') socket.broadcast.emit('typing', payload);
     else if (scope.type === 'support') {
-      socket.to(INBOXES[scope.conversation.inbox].room).emit('typing', payload);
+      socket.to(conversationRooms(scope.conversation)).emit('typing', payload);
       widget.to(roomOfConversation(scope.conversation)).emit('typing', { name: firstName(me.displayName) });
     } else {
       const other = store.dmMembers(scope.dm).find((m) => m !== userId);
@@ -801,15 +815,29 @@ io.on('connection', async (socket) => {
     return { conversation };
   });
 
-  // Quem atende leads assume uma conversa que estava com outra pessoa (ou sem ninguém).
+  // Quem atende a fila assume uma conversa que estava com outra pessoa (ou sem ninguém).
   on('support:take', async (p) => {
     const scope = await resolveScope({ type: 'support', id: p.id }, userId);
-    if (!scope || scope.conversation.inbox !== 'leads') return { error: 'Lead não encontrado.' };
+    if (!scope) return { error: 'Atendimento não encontrado.' };
     if (scope.conversation.assigneeId === userId) return { conversation: scope.conversation };
-    await support.assign(scope.id, userId);
-    const conversation = await support.getConversation(scope.id);
-    emitSupportUpsert(conversation);
-    return { conversation };
+    return { conversation: await transferConversation(scope.conversation, userId, userId) };
+  });
+
+  // Passa a conversa para outra pessoa da equipe, que passa a abri-la e respondê-la mesmo sem atender a fila.
+  on('support:transfer', async (p) => {
+    const scope = await resolveScope({ type: 'support', id: p.id }, userId);
+    if (!scope) return { error: 'Atendimento não encontrado.' };
+    const toUserId = Number(p.userId);
+    if (!store.users.has(toUserId)) return { error: 'Pessoa não encontrada.' };
+    if (scope.conversation.assigneeId === toUserId) return { error: 'A conversa já está com essa pessoa.' };
+    return { conversation: await transferConversation(scope.conversation, toUserId, userId) };
+  });
+
+  // Prévia da conversa para quem passa o mouse na fila: toda a equipe vê, sem abrir nem responder.
+  on('support:preview', async (p) => {
+    const conversation = await support.getConversation(p.id);
+    if (!conversation) return { error: 'Atendimento não encontrado.' };
+    return support.preview(conversation.id);
   });
 
   // ----- Mensagens diretas -------------------------------------------------
@@ -882,14 +910,15 @@ io.on('connection', async (socket) => {
     ]);
     const isSupportAgent = myInboxes.includes('support');
     const isLeadAgent = myInboxes.includes('leads');
-    // null quando a fila não está em uso. Só quem atende (canAnswer) recebe os dados de contato e
-    // consegue abrir as conversas; os demais veem a fila.
+    // null quando a fila não está em uso. Quem atende (canAnswer) recebe os dados de contato e abre as
+    // conversas; os demais veem a fila e abrem só as conversas transferidas para eles.
     const queueFor = (inbox, conversations, canAnswer) => conversations && {
       canAnswer,
       agentIds: [...support.agents[inbox]],
-      conversations: canAnswer ? conversations : conversations.map((c) => support.queueItem(c)),
+      conversations: conversations.map((c) => (canAnswer || c.assigneeId === userId ? c : support.queueItem(c))),
     };
-    const answerable = [...(isSupportAgent ? supportConversations : []), ...(isLeadAgent ? leadConversations : [])];
+    // Conversas que este usuário abre: as das filas que atende e as que recebeu por transferência.
+    const answerable = [...(supportConversations || []), ...(leadConversations || [])].filter((c) => support.canAccess(userId, c));
     const [unread, initial, ownEmail] = await Promise.all([
       store.unreadSummary(userId, dms, answerable.map((c) => c.id)),
       initialMessages(socket.handshake.auth?.view, userId),
@@ -912,8 +941,8 @@ io.on('connection', async (socket) => {
       maxPeersPerRoom: MAX_PEERS_PER_ROOM,
     });
     // Aba de quem atende carregada antes desta versão: funciona no formato antigo, mas só vê as filas novas ao recarregar.
-    if (myInboxes.length && !(Number(socket.handshake.auth?.client) >= CLIENT_VERSION)) {
-      socket.emit('fatal', { error: 'O UVoz foi atualizado. Recarregue a página (Ctrl+R) para ver as filas de atendimento.' });
+    if ((myInboxes.length || answerable.length) && !(Number(socket.handshake.auth?.client) >= CLIENT_VERSION)) {
+      socket.emit('fatal', { error: 'O UVoz foi atualizado. Recarregue a página (Ctrl+R) para usar as novidades do atendimento.' });
     }
   } catch (err) {
     console.error('[uvoz] erro ao iniciar sessão:', err);
@@ -921,6 +950,23 @@ io.on('connection', async (socket) => {
     socket.disconnect(true);
   }
 });
+
+/**
+ * Troca o responsável pela conversa e avisa a equipe. Quem a recebe de outra pessoa ganha o aviso e a
+ * contagem de mensagens que ainda não leu; quem a perde e não atende a fila volta a ver só a fila.
+ */
+async function transferConversation(previous, toUserId, byUserId) {
+  await support.assign(previous.id, toUserId, byUserId);
+  const conversation = await support.getConversation(previous.id);
+  emitSupportUpsert(conversation);
+  if (toUserId !== byUserId) {
+    const unread = await store.unreadSummary(toUserId, [], [conversation.id]);
+    io.to(`user:${toUserId}`).emit('support:transferred', {
+      id: conversation.id, byUserId, unread: unread[`s:${conversation.id}`] || null,
+    });
+  }
+  return conversation;
+}
 
 /** Primeira página da conversa que o cliente tinha aberta; null em qualquer problema. */
 async function initialMessages(view, userId) {

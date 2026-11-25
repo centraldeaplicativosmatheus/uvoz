@@ -253,8 +253,13 @@ Um chat de suporte, no visual do painel da Unicopag, que se instala nas aplicaç
 escreve pelo widget e a conversa aparece na seção **Atendimento** do UVoz.
 
 - **Toda a equipe vê a fila**: quem atende, os clientes em atendimento e os já atendidos (em cinza, com o número
-  de atendimentos concluídos). **Só quem atende abre as conversas**; os demais não recebem mensagens, e-mail nem
+  de atendimentos concluídos). **Só quem atende abre as conversas**; os demais não recebem e-mail nem
   identificador dos clientes.
+- **Prévia ao passar o mouse**: em qualquer conversa das filas (Atendimento e Leads), toda a equipe vê as últimas
+  mensagens em um balão, sem abrir nem responder. A prévia traz só o texto: sem dados de contato nem arquivos.
+- **Transferir** (no topo da conversa) passa o atendimento para qualquer pessoa da equipe. Quem recebe é avisado
+  e passa a abrir e responder aquela conversa, mesmo sem atender a fila; o nome dela aparece ao lado do cliente.
+  **Assumir** traz a conversa de volta para quem atende a fila.
 - Cada cliente tem **uma conversa**. **Resolver** encerra o atendimento (o cliente vê "Atendimento encerrado");
   a próxima mensagem dele, ou uma resposta da equipe, reabre a mesma conversa com o histórico inteiro.
 - O cliente vê só o primeiro nome de quem respondeu. Não lidas, notificações e anexos funcionam como nas DMs.

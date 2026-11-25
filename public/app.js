@@ -598,7 +598,7 @@
     // "view" vai no handshake para o servidor já devolver as mensagens da conversa aberta junto do init.
     const socket = (state.socket = io({
       // "client" diz ao servidor qual formato de dados este app.js entende (ver CLIENT_VERSION no servidor).
-      auth: (cb) => cb({ token: state.token, view: viewScope() || savedView(), client: 4 }),
+      auth: (cb) => cb({ token: state.token, view: viewScope() || savedView(), client: 5 }),
       transports: ['websocket', 'polling'],
     }));
 
@@ -677,10 +677,26 @@
     socket.on('typing', onTyping);
     const onConversationUpsert = (inbox) => (conversation) => {
       if (!state.inboxes[inbox]) return;
-      state.support.set(conversation.id, { ...conversation, inbox });
+      const updated = { ...conversation, inbox };
+      state.support.set(conversation.id, updated);
+      previewCache.delete(conversation.id);
       renderSupport();
-      if (state.view?.type === 'support' && state.view.id === conversation.id) renderHeader();
+      if (state.view?.type !== 'support' || state.view.id !== conversation.id) return;
+      if (canAnswer(updated)) return renderHeader();
+      // A conversa aberta foi transferida para outra pessoa e este usuário não atende a fila dela.
+      state.unread.delete(`s:${conversation.id}`);
+      updateTitle();
+      toast(`A conversa com ${updated.contact.name} foi transferida para outra pessoa.`);
+      openDefault();
     };
+    socket.on('support:transferred', ({ id, byUserId, unread }) => {
+      const conversation = state.support.get(id);
+      if (!conversation) return;
+      const key = `s:${id}`;
+      if (unread && viewKey() !== key) state.unread.set(key, unread);
+      renderSupport(); updateTitle();
+      toast(`${userName(byUserId)} transferiu para você a conversa com ${conversation.contact.name}.`);
+    });
     socket.on('support:upsert', onConversationUpsert('support'));
     socket.on('lead:upsert', onConversationUpsert('leads'));
     socket.on('dm:upsert', (dm) => {
@@ -916,8 +932,9 @@
     if (!list.length) $('#dm-list').append(el('li', { class: 'empty-hint muted' }, 'Clique em alguém na lista de membros para conversar.'));
   }
 
-  /** Só quem atende a fila da conversa consegue abri-la. */
-  const canAnswer = (conversation) => !!conversation && !!state.inboxes[conversation.inbox]?.canAnswer;
+  /** Abre a conversa quem atende a fila dela ou quem a recebeu por transferência. */
+  const canAnswer = (conversation) => !!conversation
+    && (!!state.inboxes[conversation.inbox]?.canAnswer || conversation.assigneeId === state.me.id);
   const firstNameOf = (user) => String(user?.displayName || '').trim().split(/\s+/)[0] || '';
 
   const INBOX_UI = {
@@ -966,20 +983,26 @@
       const active = state.view?.type === 'support' && state.view.id === c.id;
       const done = c.resolvedCount || 0;
       const history = done ? `${done} ${done === 1 ? 'atendimento concluído' : 'atendimentos concluídos'}` : 'primeiro atendimento';
-      // Leads: de quem é a vez de atender.
-      const owner = inbox === 'leads' ? state.users.get(c.assigneeId) : null;
+      // Com quem está a conversa: a vez no rodízio dos leads ou quem a recebeu por transferência.
+      const owner = state.users.get(c.assigneeId) || null;
       const mine = !!owner && owner.id === state.me.id;
-      const access = box.canAnswer
+      const openable = canAnswer(c);
+      const access = openable
         ? { role: 'button', tabindex: 0,
           onclick: () => openView({ type: 'support', id: c.id }),
           onkeydown: (e) => e.key === 'Enter' && openView({ type: 'support', id: c.id }) }
         : {};
       return el('li', {},
         el('div', {
-          class: `channel dm support-row ${isOpen ? '' : 'resolved'} ${box.canAnswer ? '' : 'readonly'} ${active ? 'active' : ''} ${state.unread.get(key)?.unread ? 'unread' : ''}`,
+          class: `channel dm support-row ${isOpen ? '' : 'resolved'} ${openable ? '' : 'readonly'} ${active ? 'active' : ''} ${state.unread.get(key)?.unread ? 'unread' : ''}`,
           dataset: { key },
-          title: [c.contact.name, c.app.name, history, owner ? `com ${mine ? 'você' : owner.displayName}` : null,
-            box.canAnswer ? null : 'só quem atende abre a conversa'].filter(Boolean).join(' · '),
+          // Sem "title": o balão de prévia (ao passar o mouse ou focar) já traz estes dados e as mensagens.
+          'aria-label': [c.contact.name, c.app.name, history, owner ? `com ${mine ? 'você' : owner.displayName}` : null,
+            openable ? null : 'só quem atende abre a conversa'].filter(Boolean).join(' · '),
+          onmouseenter: (e) => schedulePreview(c.id, e.currentTarget),
+          onmouseleave: hidePreview,
+          onfocus: (e) => schedulePreview(c.id, e.currentTarget),
+          onblur: hidePreview,
           ...access,
         },
         avatar({ displayName: c.contact.name, color: c.contact.color }, 'xs'),
@@ -1010,6 +1033,80 @@
       renderInbox(inbox);
     });
   }
+  // Prévia da conversa ao passar o mouse na fila: as últimas mensagens, para toda a equipe.
+  const previewCache = new Map(); // id -> { messages, hasMore }; descartada quando a conversa muda
+  const previewPop = $('#support-preview');
+  let previewTimer = null;
+  let previewFor = null; // { id, anchor } da linha sob o mouse
+
+  function schedulePreview(id, anchor) {
+    if (!window.matchMedia('(hover: hover)').matches) return; // em telas de toque não há "passar o mouse"
+    clearTimeout(previewTimer);
+    previewFor = { id, anchor };
+    previewTimer = setTimeout(() => showPreview(id, anchor), 350);
+  }
+
+  function hidePreview() {
+    clearTimeout(previewTimer);
+    previewFor = null;
+    previewPop.hidden = true;
+  }
+
+  function showPreview(id, anchor) {
+    const conversation = state.support.get(id);
+    if (!conversation || !anchor.isConnected) return;
+    renderPreview(conversation, previewCache.get(id) || null, anchor);
+    if (previewCache.has(id)) return;
+    state.socket.emit('support:preview', { id }, (res) => {
+      if (res?.error || !res?.messages) {
+        if (previewFor?.id === id) renderPreview(conversation, { error: res?.error || 'Não foi possível carregar a conversa.' }, anchor);
+        return;
+      }
+      previewCache.set(id, res);
+      if (previewFor?.id === id && previewFor.anchor.isConnected) renderPreview(state.support.get(id) || conversation, res, previewFor.anchor);
+    });
+  }
+
+  function renderPreview(c, data, anchor) {
+    const owner = state.users.get(c.assigneeId);
+    const done = c.resolvedCount || 0;
+    const meta = [c.app.name,
+      c.status === 'open' ? (c.inbox === 'leads' ? 'em aberto' : 'em atendimento') : 'atendido',
+      done ? `${done} ${done === 1 ? 'atendimento concluído' : 'atendimentos concluídos'}` : null,
+      owner ? `com ${owner.id === state.me.id ? 'você' : owner.displayName}` : null].filter(Boolean).join(' · ');
+    const who = (m) => (m.from === 'contact' ? c.contact.name : firstNameOf(state.users.get(m.authorId)) || 'Equipe');
+    const line = (m) => {
+      const files = m.files ? `${m.files === 1 ? '📎 1 arquivo' : `📎 ${m.files} arquivos`}` : '';
+      if (m.from === 'system') return el('li', { class: 'preview-system' }, m.text);
+      return el('li', { class: `preview-msg ${m.from}` },
+        el('div', { class: 'preview-author' }, el('strong', {}, who(m)), el('time', { class: 'muted' }, fmtTime(m.ts))),
+        el('div', { class: 'preview-text' }, [m.text, files].filter(Boolean).join(' ')));
+    };
+    const body = !data ? el('p', { class: 'muted preview-note' }, 'Carregando…')
+      : data.error ? el('p', { class: 'muted preview-note' }, data.error)
+        : !data.messages.length ? el('p', { class: 'muted preview-note' }, 'Nenhuma mensagem ainda.')
+          : el('ul', { class: 'preview-list' },
+            data.hasMore ? el('li', { class: 'preview-system' }, 'mensagens anteriores…') : null,
+            data.messages.map(line));
+    previewPop.replaceChildren(
+      el('header', { class: 'preview-head' },
+        avatar({ displayName: c.contact.name, color: c.contact.color }, 'sm'),
+        el('div', { class: 'preview-title' }, el('strong', {}, c.contact.name), el('small', { class: 'muted' }, meta))),
+      body,
+      canAnswer(c) ? null : el('p', { class: 'muted preview-note' }, 'Só quem atende abre e responde a conversa.'));
+    previewPop.hidden = false;
+    // Ao lado da linha, sem sair da tela; as mensagens mais recentes ficam à vista.
+    const rect = anchor.getBoundingClientRect();
+    const height = previewPop.offsetHeight;
+    const left = Math.min(rect.right + 8, window.innerWidth - previewPop.offsetWidth - 8);
+    const top = Math.max(8, Math.min(rect.top - 12, window.innerHeight - height - 8));
+    previewPop.style.left = `${Math.max(8, left)}px`;
+    previewPop.style.top = `${top}px`;
+    const list = previewPop.querySelector('.preview-list');
+    if (list) list.scrollTop = list.scrollHeight;
+  }
+  $('.sidebar-scroll').addEventListener('scroll', hidePreview, { passive: true });
+
   const viewedConversation = () => (state.view?.type === 'support' ? state.support.get(state.view.id) : null);
   $('#support-status').addEventListener('click', () => {
     const conversation = viewedConversation();
@@ -1021,6 +1118,47 @@
     const conversation = viewedConversation();
     if (!conversation) return;
     state.socket.emit('support:take', { id: conversation.id }, (res) => res?.error && toast(res.error, 'error'));
+  });
+
+  // Transferência: quem está com a conversa escolhe a pessoa da equipe que vai continuar o atendimento.
+  const transferDialog = $('#transfer-dialog');
+  function renderTransferResults() {
+    const conversation = viewedConversation();
+    if (!conversation) return transferDialog.close();
+    const q = normalize($('#transfer-search').value);
+    const agentIds = state.inboxes[conversation.inbox]?.agentIds || [];
+    const list = [...state.users.values()]
+      .filter((u) => u.id !== state.me.id && u.id !== conversation.assigneeId
+        && (!q || normalize(u.displayName).includes(q) || u.username.includes(q)))
+      .sort((a, b) => (agentIds.includes(b.id) - agentIds.includes(a.id)) || (b.online - a.online)
+        || a.displayName.localeCompare(b.displayName, 'pt-BR'))
+      .slice(0, 30);
+    $('#transfer-results').replaceChildren(...list.map((u) => el('li', {},
+      el('button', { type: 'button', class: 'dm-result', onclick: () => transferTo(conversation, u) },
+        avatarWithPresence(u, 'sm'),
+        el('span', { class: 'member-info' }, el('span', {}, u.displayName),
+          el('small', { class: 'muted' }, agentIds.includes(u.id) ? `@${u.username} · atende esta fila` : `@${u.username}`))))));
+    if (!list.length) $('#transfer-results').append(el('li', { class: 'muted empty-hint' }, 'Ninguém encontrado.'));
+  }
+  function transferTo(conversation, user) {
+    transferDialog.close();
+    state.socket.emit('support:transfer', { id: conversation.id, userId: user.id }, (res) => {
+      if (res?.error) return toast(res.error, 'error');
+      toast(`Conversa com ${conversation.contact.name} transferida para ${user.displayName}.`);
+    });
+  }
+  $('#support-transfer').addEventListener('click', () => {
+    const conversation = viewedConversation();
+    if (!conversation) return;
+    $('#transfer-title').textContent = `Transferir a conversa com ${conversation.contact.name}`;
+    $('#transfer-search').value = '';
+    renderTransferResults();
+    transferDialog.showModal();
+    $('#transfer-search').focus();
+  });
+  $('#transfer-search').addEventListener('input', renderTransferResults);
+  $('#transfer-search').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); $('#transfer-results .dm-result')?.click(); }
   });
 
   function renderMembers() {
@@ -1162,19 +1300,23 @@
     const isLead = conversation?.inbox === 'leads';
     const whatsapp = isLead ? whatsappLink(conversation.contact.phone) : null;
     statusButton.hidden = !conversation;
-    $('#support-take').hidden = !isLead || conversation.assigneeId === state.me.id;
+    // "Assumir" aparece quando a conversa está com outra pessoa (nos leads, também quando está sem ninguém).
+    $('#support-take').hidden = !conversation || conversation.assigneeId === state.me.id
+      || (!isLead && !conversation.assigneeId);
+    $('#support-transfer').hidden = !conversation;
     $('#lead-whatsapp').hidden = !whatsapp;
     if (whatsapp) $('#lead-whatsapp').href = whatsapp;
     if (conversation) {
       const { contact, app } = conversation;
-      const owner = isLead ? state.users.get(conversation.assigneeId) : null;
+      const owner = state.users.get(conversation.assigneeId) || null;
+      const withOwner = owner ? `com ${owner.id === state.me.id ? 'você' : owner.displayName}` : null;
       icon.hidden = true;
       av.hidden = false;
       av.replaceChildren(avatar({ displayName: contact.name, color: contact.color }, 'xs'));
       $('#header-title').textContent = contact.name;
       $('#header-topic').textContent = (isLead
-        ? [app.name, contact.phone, contact.email, owner ? `com ${owner.id === state.me.id ? 'você' : owner.displayName}` : 'sem responsável']
-        : [app.name, contact.email, `conta ${contact.externalId}`]).filter(Boolean).join(' · ');
+        ? [app.name, contact.phone, contact.email, withOwner || 'sem responsável']
+        : [app.name, contact.email, `conta ${contact.externalId}`, withOwner]).filter(Boolean).join(' · ');
       statusButton.textContent = conversation.status === 'open' ? 'Resolver' : 'Reabrir';
       statusButton.classList.toggle('btn-primary', conversation.status === 'open');
     } else if (v.type === 'dm') {

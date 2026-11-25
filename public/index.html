@@ -180,7 +180,8 @@
         <strong id="header-title"></strong>
         <span id="header-topic" class="header-topic muted"></span>
         <div class="spacer"></div>
-        <button id="support-take" type="button" class="btn support-status" title="Passar este lead para você" hidden>Assumir</button>
+        <button id="support-take" type="button" class="btn support-status" title="Passar esta conversa para você" hidden>Assumir</button>
+        <button id="support-transfer" type="button" class="btn support-status" title="Passar esta conversa para outra pessoa da equipe" hidden>Transferir</button>
         <a id="lead-whatsapp" class="btn support-status" target="_blank" rel="noopener noreferrer" title="Continuar a conversa no WhatsApp" hidden>WhatsApp</a>
         <button id="support-status" type="button" class="btn support-status" hidden>Resolver</button>
         <button id="toggle-members" class="icon-btn" title="Membros" aria-label="Mostrar membros">
@@ -277,6 +278,22 @@
       <div class="dialog-actions">
         <button value="cancel" class="btn" formnovalidate>Cancelar</button>
         <button value="ok" class="btn btn-primary">Criar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Prévia de um atendimento ao passar o mouse na fila -->
+  <div id="support-preview" class="support-preview" role="tooltip" hidden></div>
+
+  <!-- Modal transferir atendimento -->
+  <dialog id="transfer-dialog" class="dialog">
+    <form method="dialog">
+      <h3 id="transfer-title">Transferir a conversa</h3>
+      <p class="muted transfer-hint">Quem receber passa a ver e responder esta conversa, mesmo sem atender a fila.</p>
+      <input id="transfer-search" class="dialog-search" placeholder="Buscar pessoa pelo nome ou usuário" autocomplete="off" />
+      <ul id="transfer-results" class="dm-results"></ul>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn" formnovalidate>Cancelar</button>
       </div>
     </form>
   </dialog>
