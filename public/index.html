@@ -106,6 +106,16 @@
           <ul id="support-resolved" class="channel-list" hidden></ul>
         </div>
 
+        <!-- Leads: visitantes do site que escreveram pelo chat; mesma regra de quem vê e quem abre -->
+        <div id="leads-section" hidden>
+          <div class="section-title"><span>Leads</span></div>
+          <ul id="leads-agents" class="channel-list" aria-label="Quem atende os leads"></ul>
+          <div id="leads-open-label" class="support-label"></div>
+          <ul id="leads-list" class="channel-list"></ul>
+          <button id="leads-resolved-toggle" type="button" class="support-label support-resolved-toggle" aria-controls="leads-resolved" hidden></button>
+          <ul id="leads-resolved" class="channel-list" hidden></ul>
+        </div>
+
         <div class="section-title">
           <span>Canais de texto</span>
           <button class="icon-btn small" data-create="text" title="Criar canal de texto" aria-label="Criar canal de texto">
@@ -170,6 +180,8 @@
         <strong id="header-title"></strong>
         <span id="header-topic" class="header-topic muted"></span>
         <div class="spacer"></div>
+        <button id="support-take" type="button" class="btn support-status" title="Passar este lead para você" hidden>Assumir</button>
+        <a id="lead-whatsapp" class="btn support-status" target="_blank" rel="noopener noreferrer" title="Continuar a conversa no WhatsApp" hidden>WhatsApp</a>
         <button id="support-status" type="button" class="btn support-status" hidden>Resolver</button>
         <button id="toggle-members" class="icon-btn" title="Membros" aria-label="Mostrar membros">
           <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-6 6.5-6s5.9 2.4 6.5 6"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.4 0 4.2 1.8 4.6 4.5"/></svg>

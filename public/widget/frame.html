@@ -16,7 +16,7 @@
         <svg viewBox="0 0 24 24"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>
       </div>
       <div class="w-head-text">
-        <h1>Suporte Unicopag</h1>
+        <h1 id="title">Suporte Unicopag</h1>
         <p id="status" class="w-status"><span class="w-dot"></span><span id="status-text">Conectando…</span></p>
       </div>
       <button id="close" type="button" class="w-icon-btn" aria-label="Fechar o chat" title="Fechar">
@@ -35,7 +35,28 @@
         <div id="topics" class="w-topics" hidden></div>
       </section>
 
-      <ol id="messages" class="w-list" aria-live="polite" aria-label="Conversa com o suporte"></ol>
+      <!-- Visitante do site: identifica-se e envia a primeira mensagem antes de a conversa começar -->
+      <form id="lead" class="w-lead" novalidate hidden>
+        <h2>Como podemos ajudar?</h2>
+        <p id="lead-text">Deixe seu contato e sua mensagem. Nossa equipe responde por aqui.</p>
+        <label>Nome
+          <input id="lead-name" type="text" autocomplete="name" maxlength="80" required />
+        </label>
+        <label>WhatsApp
+          <input id="lead-phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="(11) 91234-5678" required />
+        </label>
+        <label>E-mail <span>(opcional)</span>
+          <input id="lead-email" type="email" autocomplete="email" maxlength="255" />
+        </label>
+        <label>Mensagem
+          <textarea id="lead-message" rows="3" maxlength="2000" required></textarea>
+        </label>
+        <p id="lead-error" class="w-lead-error" role="alert" hidden></p>
+        <button id="lead-submit" type="submit" class="w-lead-submit">Iniciar conversa</button>
+        <p class="w-lead-note">Usamos seus dados só para responder ao seu contato.</p>
+      </form>
+
+      <ol id="messages" class="w-list" aria-live="polite" aria-label="Conversa"></ol>
 
       <div id="typing" class="w-typing" hidden>
         <span class="w-typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>

@@ -7,6 +7,7 @@ Plataforma de comunicação interna com:
 - **Mensagens diretas (DM)**: conversa privada 1:1 — clique em alguém na lista de membros ou no **+** de "Mensagens diretas".
 - **Anexos e fotos de perfil**: envie imagens e arquivos em conversas; clique em uma imagem para ampliá-la e edite sua foto de perfil com recorte quadrado, visível para os demais usuários.
 - **Suporte a clientes**: widget de chat para as aplicações da Unicopag; as conversas chegam na seção "Atendimento", com a fila visível para toda a equipe (veja "Suporte a clientes (widget)").
+- **Leads do site**: o mesmo chat na página principal da Unicopag, para visitantes sem conta; quem escreve cai na seção "Leads", dividida entre quem atende (veja "Leads do site").
 - **Redefinição de senha**: usuários podem redefinir a senha informando o nome de usuário e um código mestre configurado no servidor.
 - **Respostas**: responda a qualquer mensagem, inclusive às que contêm somente anexos; a conversa mostra uma prévia da mensagem original junto da resposta.
 - **Menções**: `@usuario`, `@todos`/`@everyone` com autocompletar (setas + Enter/Tab), destaque da mensagem e contador vermelho de menções no canal.
@@ -101,6 +102,8 @@ Acesse http://localhost:3000, clique em **Criar conta** e use o código de acess
 | `SUPPORT_TIMEZONE` | `America/Sao_Paulo` | Fuso horário de `SUPPORT_HOURS` |
 | `SUPPORT_TOPICS` | `Saques,Vendas e cobranças,Minha conta,Outro assunto` | Atalhos de assunto na primeira conversa do widget, separados por vírgula (até 6). Vazio = sem atalhos |
 | `SUPPORT_TEAM_NAME` | `Suporte Unicopag` | Nome da equipe mostrado ao cliente nos avisos de resposta |
+| `LEADS_HOURS` | igual a `SUPPORT_HOURS` | Horário de atendimento dos leads do site, no mesmo formato. Vazio = sempre aberto |
+| `LEADS_TEAM_NAME` | `Equipe Unicopag` | Nome da equipe no chat do site |
 
 Veja `.env.example`.
 
@@ -321,6 +324,55 @@ node scripts/support-token.js unicopag conta-teste "Cliente de Teste"
 
 Depois abra `/widget/demo.html?app=unicopag&token=TOKEN` e, em outra janela, o UVoz com a conta de quem atende.
 
+## Leads do site
+
+O mesmo chat, instalado na página principal da Unicopag. Quem visita o site não tem conta: ao abrir o chat,
+informa **nome, WhatsApp, e-mail (opcional) e a primeira mensagem**, e a conversa aparece na seção **Leads** do UVoz.
+
+- **Divisão entre quem atende**: cada lead novo vai para uma pessoa, alternando entre quem atende leads e dando
+  preferência a quem está online. O nome da responsável aparece ao lado do lead. Todas as que atendem leads veem e
+  podem responder qualquer conversa; **Assumir** passa o lead para quem clicou.
+- **Dados do lead**: o início da conversa mostra WhatsApp, e-mail e a página em que a pessoa estava (com os
+  parâmetros de campanha da URL). O botão **WhatsApp** abre a conversa com o número informado.
+- Como no suporte, toda a equipe vê a fila (nome do lead e responsável), mas só quem atende leads abre as
+  conversas e recebe os dados de contato. **Resolver** encerra; se a pessoa voltar a escrever, a conversa reabre.
+- O visitante que volta ao site no mesmo navegador encontra a conversa e as respostas (a chave dele fica no
+  `localStorage` do site). Visitantes não enviam arquivos; quem atende pode enviar.
+- Proteções do formulário público: no máximo 8 novos contatos por hora por endereço IP e 20 mensagens por minuto
+  por conversa.
+
+### Como ativar
+
+1. Defina quem atende os leads e reinicie o processo do UVoz:
+   ```bash
+   node scripts/support-agent.js nath --leads
+   ```
+   ```bash
+   node scripts/support-agent.js kay --leads
+   ```
+2. Cole no HTML da página principal, antes de `</body>`:
+   ```html
+   <script src="https://uvoz.on-forge.com/widget/loader.js" data-app="site" data-launcher="red" async></script>
+   ```
+
+O site `site` ("Site Unicopag") já vem cadastrado. `data-launcher="red"` deixa o botão vermelho (sem ele, fica claro);
+`data-side="left"`, `data-offset-x` e `data-offset-y` mudam a posição. Para abrir o chat a partir de um botão da
+própria página, use `UVozWidget.open()`.
+
+Para outro site ou landing page aparecer com nome próprio na fila, cadastre-o e use o `data-app` que o comando mostra:
+
+```bash
+node scripts/support-app.js lp-black-friday "LP Black Friday" --leads
+```
+
+Se o site tiver uma política de segurança de conteúdo (CSP), libere `https://uvoz.on-forge.com` em `script-src` e
+`frame-src`.
+
+### Testando
+
+`/widget/demo.html?demo=lead` mostra o formulário com um servidor simulado. `/widget/demo.html?app=site` usa o
+servidor de verdade: a conversa aparece na seção Leads de quem atende.
+
 ## Estrutura
 
 ```
@@ -328,16 +380,16 @@ server.js          Servidor: Express (API de contas) + Socket.io (chat, DMs, men
 lib/db.js          Conexão MySQL e migrações do esquema
 lib/auth.js        Senhas (scrypt), sessões e limite de tentativas
 lib/store.js       Consultas: usuários, canais, mensagens, DMs, menções, não lidas
-lib/support.js     Suporte a clientes: token do cliente, horário, aplicações, contatos e conversas
+lib/support.js     Suporte e leads: token do cliente, chave do visitante, horário, aplicações, contatos e conversas
 lib/env.js         Leitura do .env
-scripts/           Administração (redefinir senha, remover conta, atendentes e aplicações do suporte)
+scripts/           Administração (redefinir senha, remover conta, quem atende suporte e leads, aplicações e sites)
 deploy/coturn/     Instalação do servidor TURN
 deploy/backup/     Backup diário dos bancos MySQL para o R2
 public/index.html  Interface
 public/styles.css  Tema escuro estilo Discord
 public/app.js      Interface: login, canais, DMs, menções, chat, palco de vídeo
 public/manifest.webmanifest, public/icons/   App instalável (PWA)
-public/widget/     Widget de suporte: loader.js (instalador), frame.html + widget.css + widget.js (chat), página de teste
+public/widget/     Widget de suporte e do site: loader.js (instalador), frame.html + widget.css + widget.js (chat), página de teste
 desktop/           App para Windows (Electron): janela, bandeja, atalho global, seletor de tela
 public/rtc.js      WebRTC: conexões P2P (perfect negotiation), recuperação automática, supressão de ruído, detector de fala
 ```

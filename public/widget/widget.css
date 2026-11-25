@@ -41,7 +41,7 @@ body {
   overflow: hidden;
 }
 [hidden] { display: none !important; }
-button, textarea { font: inherit; color: inherit; }
+button, textarea, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
 svg {
   width: 20px; height: 20px; flex: none;
@@ -117,6 +117,33 @@ svg {
 
 .w-list { list-style: none; margin: auto 0 0; padding: 0; display: flex; flex-direction: column; }
 .w-welcome:not([hidden]) + .w-list { margin-top: 0; }
+
+/* ---------- Identificação do visitante (widget no site) ---------- */
+.w-lead { display: grid; gap: 12px; margin: auto 0; padding: 8px 4px 12px; }
+.w-lead h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 800; letter-spacing: -0.025em; }
+.w-lead > p { margin: 0; color: var(--text-2); }
+.w-lead h2 + p { margin-top: -6px; }
+.w-lead label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+.w-lead label span { font-weight: 400; color: var(--text-3); }
+.w-lead input, .w-lead textarea {
+  display: block; width: 100%; margin-top: 5px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 12px; outline: 0;
+  background: var(--surface); color: var(--text); font-size: 14px; font-weight: 400;
+  transition: border-color .15s, box-shadow .15s;
+}
+.w-lead textarea { resize: none; min-height: 76px; line-height: 1.4; }
+.w-lead input::placeholder { color: var(--text-3); }
+.w-lead input:focus, .w-lead textarea:focus { border-color: #3c5a8c; box-shadow: 0 0 0 3px rgba(60, 90, 140, .25); }
+.w-lead > .w-lead-error { color: #ff8a93; font-size: 13px; }
+.w-lead-submit {
+  padding: 11px 16px; border: 0; border-radius: 12px; background: var(--red); color: #fff; font-weight: 600;
+  transition: background .15s, opacity .15s;
+}
+.w-lead-submit:hover { background: var(--red-2); }
+.w-lead-submit:disabled { opacity: .6; cursor: default; }
+.w-lead > .w-lead-note { font-size: 12px; color: var(--text-3); text-align: center; }
+/* No iOS, campos com letra menor que 16px fazem a página ampliar ao receber o foco. */
+@media (max-width: 480px) { .w-lead input, .w-lead textarea { font-size: 16px; } }
 
 .w-day {
   align-self: center; margin: 14px 0 10px;

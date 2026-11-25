@@ -13,6 +13,12 @@
  *   UVozWidget.boot({ app: 'unicopag', token, getToken: () => buscarNovoToken() });
  *   UVozWidget.shutdown();   // ao sair da conta
  *
+ * Uso no site público (visitantes sem conta, que caem na seção "Leads" do UVoz): sem token. O visitante
+ * informa nome e WhatsApp no próprio chat; a chave que ele recebe fica no localStorage do site, para
+ * que encontre a mesma conversa nas próximas visitas.
+ *
+ *   <script src="https://SEU-UVOZ/widget/loader.js" data-app="site" async></script>
+ *
  * Opções de boot: app, token, getToken (função que devolve um token novo quando o atual expira),
  * side ('right' | 'left'), offsetX, offsetY (pixels), launcher ('light' | 'red'), zIndex.
  */
@@ -112,7 +118,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
-    <button type="button" class="launcher" aria-label="Abrir o chat de suporte" aria-expanded="false">
+    <button type="button" class="launcher" aria-label="Abrir o chat" aria-expanded="false">
       <svg class="i-chat" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14a2.5 2.5 0 0 1 2.5 2.5v8a2.5 2.5 0 0 1-2.5 2.5h-6.5L7.5 21v-3.5H5A2.5 2.5 0 0 1 2.5 15V7A2.5 2.5 0 0 1 5 4.5z"/><path d="M8 9.5h8M8 13h5"/></svg>
       <svg class="i-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       <span class="badge" hidden></span>
@@ -129,6 +135,19 @@
     set(open) { try { sessionStorage.setItem(OPEN_KEY, open ? '1' : '0'); } catch { /* sem armazenamento */ } },
   };
 
+  // Chave do visitante do site, por aplicação. Fica no armazenamento do próprio site: o de um iframe
+  // de outro domínio é apagado por alguns navegadores ao fim da sessão.
+  const visitorStore = {
+    key: (app) => `uvoz-widget:visitor:${app}`,
+    get(app) { try { return localStorage.getItem(this.key(app)) || null; } catch { return null; } },
+    set(app, token) {
+      try {
+        if (token) localStorage.setItem(this.key(app), token);
+        else localStorage.removeItem(this.key(app));
+      } catch { /* sem armazenamento: o visitante se identifica de novo na próxima visita */ }
+    },
+  };
+
   const numberOr = (value, fallback) => (value != null && Number.isFinite(Number(value)) ? Number(value) : fallback);
 
   const toFrame = (message) => {
@@ -140,10 +159,10 @@
     parts.badge.textContent = n > 9 ? '9+' : String(n);
     parts.badge.hidden = !n;
     parts.launcher.setAttribute('aria-label', n
-      ? `Abrir o chat de suporte, ${n} ${n === 1 ? 'mensagem nova' : 'mensagens novas'}`
-      : 'Abrir o chat de suporte');
+      ? `${config.label}, ${n} ${n === 1 ? 'mensagem nova' : 'mensagens novas'}`
+      : config.label);
     if (n && preview && preview.text && !isOpen) {
-      parts.peekName.textContent = String(preview.name || 'Suporte');
+      parts.peekName.textContent = String(preview.name || (config.visitor ? 'Unicopag' : 'Suporte'));
       parts.peekText.textContent = String(preview.text);
       parts.peek.hidden = false;
     } else {
@@ -173,17 +192,29 @@
   function onMessage(e) {
     if (!parts || e.origin !== ORIGIN || e.source !== parts.frame.contentWindow) return;
     const data = e.data || {};
-    if (data.type === 'uvoz:ready') toFrame({ type: 'uvoz:boot', app: config.app, token: config.token, open: isOpen });
-    else if (data.type === 'uvoz:unread') setUnread(data.count, data.preview);
+    if (data.type === 'uvoz:ready') {
+      toFrame({
+        type: 'uvoz:boot', app: config.app, token: config.token || null, open: isOpen,
+        visitor: config.visitor, page: config.visitor ? location.href : null,
+      });
+    } else if (data.type === 'uvoz:visitor') {
+      // O visitante acabou de se identificar (ou a chave guardada deixou de valer).
+      if (!config.visitor || config.demo) return;
+      config.token = typeof data.token === 'string' && data.token ? data.token : null;
+      visitorStore.set(config.app, config.token);
+    } else if (data.type === 'uvoz:unread') setUnread(data.count, data.preview);
     else if (data.type === 'uvoz:close') setOpen(false);
     else if (data.type === 'uvoz:token') refreshToken();
   }
 
   function boot(options) {
     if (!options || !options.app) throw new Error('UVozWidget.boot: informe "app".');
-    if (!options.token && !options.demo) throw new Error('UVozWidget.boot: informe "token".');
     teardown();
     config = { ...options };
+    // Sem token assinado, quem escreve é um visitante do site, que se identifica no próprio chat.
+    config.visitor = !!options.visitor || (!options.token && !options.demo);
+    if (config.visitor && !config.demo) config.token = visitorStore.get(config.app);
+    config.label = config.visitor ? 'Abrir o chat' : 'Abrir o chat de suporte';
 
     host = document.createElement('div');
     host.id = 'uvoz-widget';
@@ -199,7 +230,7 @@
     root.append(style, wrap);
 
     const frame = document.createElement('iframe');
-    frame.title = 'Chat de suporte';
+    frame.title = config.visitor ? 'Chat com a Unicopag' : 'Chat de suporte';
     frame.allow = 'clipboard-write';
     frame.src = `${ORIGIN}/widget/frame.html${config.demo ? `?demo=${encodeURIComponent(config.demo)}` : ''}`;
     wrap.querySelector('.panel').append(frame);
@@ -216,6 +247,7 @@
     wrap.querySelector('.peek-body').addEventListener('click', () => setOpen(true));
     wrap.querySelector('.peek-close').addEventListener('click', () => { parts.peek.hidden = true; });
 
+    parts.launcher.setAttribute('aria-label', config.label);
     window.addEventListener('message', onMessage);
     document.body.append(host);
 
@@ -250,6 +282,7 @@
       app: script.dataset.app,
       token: script.dataset.token,
       demo: script.dataset.demo,
+      visitor: script.dataset.visitor != null,
       side: script.dataset.side,
       launcher: script.dataset.launcher,
       offsetX: script.dataset.offsetX,

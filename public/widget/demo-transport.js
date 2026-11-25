@@ -5,7 +5,20 @@
  *   conversa  conversa em andamento
  *   resposta  conversa em andamento e uma resposta nova chegando com o chat fechado
  *   offline   equipe fora do horário
+ *   lead      visitante do site: identifica-se antes de conversar (widget iniciado com "visitor")
  */
+// Visitante do site simulado: o que ele preenche vira a primeira mensagem da conversa.
+window.UVozDemoVisitor = function demoVisitor() {
+  'use strict';
+  return {
+    info: () => Promise.resolve({ team: { name: 'Equipe Unicopag', online: true, hours: null } }),
+    create(lead) {
+      window.UVozDemoVisitor.lead = lead;
+      return new Promise((resolve) => setTimeout(() => resolve({ token: 'demo' }), 400));
+    },
+  };
+};
+
 window.UVozDemoTransport = function demoTransport(_config, scenario) {
   'use strict';
   const handlers = new Map();
@@ -15,6 +28,7 @@ window.UVozDemoTransport = function demoTransport(_config, scenario) {
   let nextId = 100;
   let replyIndex = 0;
 
+  const lead = scenario === 'lead' ? window.UVozDemoVisitor.lead : null;
   const minutesAgo = (n) => Date.now() - n * 60 * 1000;
   const history = [
     { id: 1, from: 'contact', author: null, text: 'Bom dia! Fiz um saque ontem à tarde e ele ainda não caiu na minha conta.', ts: minutesAgo(1500), attachments: [] },
@@ -48,6 +62,18 @@ window.UVozDemoTransport = function demoTransport(_config, scenario) {
       const withHistory = scenario === 'conversa' || scenario === 'resposta';
       setTimeout(() => {
         fire('status', { connected: true });
+        if (lead) {
+          fire('init', {
+            contact: { name: lead.name },
+            team: { name: 'Equipe Unicopag', online: true, hours: null },
+            topics: [],
+            features: { attachments: false },
+            messages: [{ id: 1, from: 'contact', author: null, text: lead.message, ts: Date.now(), attachments: [] }],
+            hasMore: false,
+            lastReadId: 1,
+          });
+          return agentReply(`Olá, ${lead.name.split(/\s+/)[0]}! Recebemos seu contato e já vamos te responder.`, 600);
+        }
         fire('init', {
           contact: { name: 'Marina Souza' },
           team: { name: 'Suporte Unicopag', online, hours: online ? null : 'Respondemos de segunda a sexta, das 9h às 18h' },
