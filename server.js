@@ -152,6 +152,12 @@ function loadAssets() {
 app.get(['/', '/index.html'], (_req, res) => {
   res.set('Cache-Control', 'no-cache').type('html').send(loadAssets().html);
 });
+// Central de Ajuda (tutoriais públicos para os clientes): /ajuda e /ajuda/<tutorial> abrem a
+// mesma página, que lê public/ajuda/tutoriais.json.
+app.get(['/ajuda', '/ajuda/:slug'], (req, res, next) => {
+  if (req.params.slug && !/^[a-z0-9-]+$/.test(req.params.slug)) return next();
+  res.set('Cache-Control', 'no-cache').sendFile(path.join(PUBLIC_DIR, 'ajuda', 'index.html'));
+});
 app.use(express.static(PUBLIC_DIR, {
   index: false,
   setHeaders(res, filePath) {

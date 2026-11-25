@@ -55,6 +55,8 @@
     welcomeText: $('welcome-text'), topics: $('topics'), list: $('messages'), typing: $('typing'),
     typingText: $('typing-text'), jump: $('jump'), composer: $('composer'), staged: $('staged'),
     attach: $('attach'), input: $('input'), send: $('send'), file: $('file'),
+    head: document.querySelector('.w-head'), help: $('help'), helpCard: $('help-card'), helpPanel: $('help-panel'),
+    helpBack: $('help-back'), helpOpen: $('help-open'), helpFrame: $('help-frame'),
     lead: $('lead'), leadText: $('lead-text'), leadName: $('lead-name'), leadPhone: $('lead-phone'),
     leadEmail: $('lead-email'), leadMessage: $('lead-message'), leadError: $('lead-error'), leadSubmit: $('lead-submit'),
   };
@@ -707,7 +709,50 @@
   });
 
   ui.close.addEventListener('click', () => post({ type: 'uvoz:close' }));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post({ type: 'uvoz:close' }); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!ui.helpPanel.hidden) closeHelp(); else post({ type: 'uvoz:close' });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Tutoriais: a Central de Ajuda (/ajuda) abre dentro do chat, por cima da conversa.
+  // ---------------------------------------------------------------------------
+  const HELP_PATH = '/ajuda';
+  const isHelpPath = (path) => path === HELP_PATH || path.startsWith(`${HELP_PATH}/`);
+
+  function openHelp(path) {
+    const target = path && isHelpPath(path) ? path : HELP_PATH;
+    let current = null;
+    try { current = ui.helpFrame.contentWindow.location.pathname; } catch { /* ainda sem página */ }
+    if (!ui.helpFrame.getAttribute('src') || (path && current !== target)) ui.helpFrame.src = target;
+    ui.helpPanel.style.top = `${ui.head.offsetHeight}px`;
+    ui.helpPanel.hidden = false;
+    ui.help.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeHelp() {
+    ui.helpPanel.hidden = true;
+    ui.help.setAttribute('aria-expanded', 'false');
+    if (!ui.input.disabled) ui.input.focus();
+  }
+
+  ui.help.addEventListener('click', () => { if (ui.helpPanel.hidden) openHelp(); else closeHelp(); });
+  ui.helpCard.addEventListener('click', () => openHelp());
+  ui.helpBack.addEventListener('click', closeHelp);
+  // "Abrir em nova aba" leva ao tutorial que está na tela.
+  ui.helpOpen.addEventListener('click', () => {
+    try { ui.helpOpen.href = ui.helpFrame.contentWindow.location.pathname; } catch { ui.helpOpen.href = HELP_PATH; }
+  });
+  // Link de tutorial enviado na conversa abre aqui mesmo, sem sair do chat.
+  ui.list.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href]');
+    if (!link || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    let url;
+    try { url = new URL(link.href); } catch { return; }
+    if (url.origin !== location.origin || !isHelpPath(url.pathname)) return;
+    e.preventDefault();
+    openHelp(url.pathname);
+  });
 
   ui.scroll.addEventListener('scroll', () => { if (state.ready && isWatching()) markRead(); }, { passive: true });
   document.addEventListener('visibilitychange', () => { if (state.ready && isWatching()) markRead(); });

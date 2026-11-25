@@ -19,6 +19,9 @@
         <h1 id="title">Suporte Unicopag</h1>
         <p id="status" class="w-status"><span class="w-dot"></span><span id="status-text">Conectando…</span></p>
       </div>
+      <button id="help" type="button" class="w-icon-btn" aria-label="Tutoriais" title="Tutoriais" aria-expanded="false" aria-controls="help-panel">
+        <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20"/></svg>
+      </button>
       <button id="close" type="button" class="w-icon-btn" aria-label="Fechar o chat" title="Fechar">
         <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
       </button>
@@ -33,6 +36,11 @@
         <h2 id="welcome-title">Olá. Como podemos ajudar?</h2>
         <p id="welcome-text">Escreva sua dúvida e nossa equipe responde por aqui.</p>
         <div id="topics" class="w-topics" hidden></div>
+        <button id="help-card" type="button" class="w-help">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20"/></svg>
+          <span>Tutoriais de integração<small>Passo a passo das plataformas parceiras</small></span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
       </section>
 
       <!-- Visitante do site: identifica-se e envia a primeira mensagem antes de a conversa começar -->
@@ -68,6 +76,20 @@
       Novas mensagens
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
     </button>
+
+    <section id="help-panel" class="w-panel" aria-label="Tutoriais" hidden>
+      <div class="w-panel-bar">
+        <button id="help-back" type="button" class="w-panel-back">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+          Voltar ao chat
+        </button>
+        <a id="help-open" class="w-panel-link" href="/ajuda" target="_blank" rel="noopener">
+          Abrir em nova aba
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M11 7H6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-5"/></svg>
+        </a>
+      </div>
+      <iframe id="help-frame" title="Tutoriais da Unicopag"></iframe>
+    </section>
 
     <form id="composer" class="w-composer" autocomplete="off">
       <ul id="staged" class="w-staged" hidden></ul>

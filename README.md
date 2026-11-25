@@ -7,6 +7,7 @@ Plataforma de comunicação interna com:
 - **Mensagens diretas (DM)**: conversa privada 1:1 — clique em alguém na lista de membros ou no **+** de "Mensagens diretas".
 - **Anexos e fotos de perfil**: envie imagens e arquivos em conversas; clique em uma imagem para ampliá-la e edite sua foto de perfil com recorte quadrado, visível para os demais usuários.
 - **Suporte a clientes**: widget de chat para as aplicações da Unicopag; as conversas chegam na seção "Atendimento", com a fila visível para toda a equipe (veja "Suporte a clientes (widget)").
+- **Central de Ajuda**: os tutoriais de integração com as plataformas parceiras (antes no Intercom) ficam em `/ajuda`, página pública com busca e um endereço por tutorial (`/ajuda/shopify`, `/ajuda/klaviyo`…); no widget de suporte ela abre dentro do próprio chat (botão **Tutoriais** no topo, atalho na tela de boas-vindas e qualquer link `/ajuda/...` enviado pelo atendente), sem tirar o cliente da conversa. O conteúdo está em `public/ajuda/tutoriais.json` e as imagens em `public/ajuda/img` (o formato está descrito no topo de `public/ajuda/ajuda.js`).
 - **Leads do site**: o mesmo chat na página principal da Unicopag, para visitantes sem conta; quem escreve cai na seção "Leads", dividida entre quem atende (veja "Leads do site").
 - **Redefinição de senha**: usuários podem redefinir a senha informando o nome de usuário e um código mestre configurado no servidor.
 - **Respostas**: responda a qualquer mensagem, inclusive às que contêm somente anexos; a conversa mostra uma prévia da mensagem original junto da resposta.
