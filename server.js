@@ -4,8 +4,9 @@
  * - Express serve o front-end (pasta /public) e a API de contas (/api/*).
  * - MySQL guarda usuários, sessões, canais, mensagens, DMs, menções e leitura.
  * - Socket.io cuida de presença, mensagens em tempo real e sinalização WebRTC.
- * - O namespace "/widget" do Socket.io atende os clientes do chat de suporte (public/widget);
- *   as conversas deles aparecem na seção "Atendimento": a fila para toda a equipe, o conteúdo só para quem atende.
+ * - O namespace "/widget" do Socket.io atende quem escreve pelo widget (public/widget): clientes logados nas
+ *   aplicações caem na seção "Atendimento" e visitantes do site, na seção "Leads". A fila aparece para toda a
+ *   equipe; o conteúdo, só para quem atende cada uma.
  * - Áudio, vídeo e tela trafegam P2P entre os navegadores (com TURN quando preciso).
  */
 const fs = require('fs');
@@ -21,7 +22,7 @@ loadDotEnv(__dirname);
 const { createPool, migrate } = require('./lib/db');
 const { Store, scopeKey, ATTACHMENT_RETENTION_MS } = require('./lib/store');
 const auth = require('./lib/auth');
-const { SupportStore, parseHours, isOpen, contactFileType } = require('./lib/support');
+const { SupportStore, parseLead, parseHours, isOpen, contactFileType } = require('./lib/support');
 
 // ---------------------------------------------------------------------------
 // Configuração
@@ -70,6 +71,11 @@ const SUPPORT_HOURS = parseHours(process.env.SUPPORT_HOURS, process.env.SUPPORT_
 const SUPPORT_TEAM_NAME = sanitizeText(process.env.SUPPORT_TEAM_NAME, 40) || 'Suporte Unicopag';
 const SUPPORT_TOPICS = (process.env.SUPPORT_TOPICS ?? 'Saques,Vendas e cobranças,Minha conta,Outro assunto')
   .split(',').map((topic) => sanitizeText(topic, 40)).filter(Boolean).slice(0, 6);
+// Leads do site: sem LEADS_HOURS, vale o mesmo horário do suporte.
+const LEADS_HOURS = process.env.LEADS_HOURS == null
+  ? SUPPORT_HOURS : parseHours(process.env.LEADS_HOURS, process.env.SUPPORT_TIMEZONE || 'America/Sao_Paulo');
+const LEADS_TEAM_NAME = sanitizeText(process.env.LEADS_TEAM_NAME, 40) || 'Equipe Unicopag';
+const MAX_LEAD_MESSAGE_LENGTH = 2000;
 
 function parseIceServers() {
   const fallback = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
@@ -189,31 +195,48 @@ const emptyMedia = () => ({ mic: false, cam: false, screen: false, cameraStreamI
 // ---------------------------------------------------------------------------
 const support = new SupportStore(pool, store);
 const widget = io.of('/widget'); // clientes; isolado do namespace padrão, que é só da equipe
-const SUPPORT_ROOM = 'support'; // sockets dos atendentes, no namespace padrão
+/**
+ * As duas filas. `room` reúne os sockets de quem atende (namespace padrão) e `event` avisa a equipe de que
+ * uma conversa mudou; `widgetRoom` reúne, no namespace do widget, quem escreve para aquela fila.
+ */
+const INBOXES = {
+  support: {
+    room: 'support', event: 'support:upsert', widgetRoom: 'inbox:support',
+    hours: SUPPORT_HOURS, teamName: SUPPORT_TEAM_NAME, topics: SUPPORT_TOPICS, attachments: true,
+  },
+  // Visitantes anônimos não enviam arquivos: o widget do site é público.
+  leads: {
+    room: 'leads', event: 'lead:upsert', widgetRoom: 'inbox:leads',
+    hours: LEADS_HOURS, teamName: LEADS_TEAM_NAME, topics: [], attachments: false,
+  },
+};
 // Versão do formato do "init" que o app.js desta versão entende (enviada por ele na conexão).
 // Abas abertas antes de um deploy continuam com o app.js antigo até serem recarregadas.
-const CLIENT_VERSION = 3;
+const CLIENT_VERSION = 5;
 const contactRoom = (appId, externalId) => `contact:${appId}:${externalId}`;
 const roomOfConversation = (conversation) => contactRoom(conversation.app.id, conversation.contact.externalId);
 const firstName = (name) => String(name || '').trim().split(/\s+/)[0] || 'Suporte';
 
 /** O que o widget mostra sobre a equipe: online só dentro do horário e com algum atendente conectado. */
-function supportTeam() {
-  const open = isOpen(SUPPORT_HOURS);
+function supportTeam(inbox) {
+  const box = INBOXES[inbox];
+  const open = isOpen(box.hours);
   return {
-    name: SUPPORT_TEAM_NAME,
-    online: open && [...support.agents].some(isOnline),
-    hours: open ? null : `Respondemos ${SUPPORT_HOURS.text}`,
+    name: box.teamName,
+    online: open && [...support.agents[inbox]].some(isOnline),
+    hours: open ? null : `Respondemos ${box.hours.text}`,
   };
 }
 
-let lastTeamState = '';
+const lastTeamState = {};
 function broadcastSupportTeam() {
-  const team = supportTeam();
-  const snapshot = JSON.stringify(team);
-  if (snapshot === lastTeamState) return;
-  lastTeamState = snapshot;
-  widget.emit('team:updated', team);
+  for (const [inbox, box] of Object.entries(INBOXES)) {
+    const team = supportTeam(inbox);
+    const snapshot = JSON.stringify(team);
+    if (snapshot === lastTeamState[inbox]) continue;
+    lastTeamState[inbox] = snapshot;
+    widget.to(box.widgetRoom).emit('team:updated', team);
+  }
 }
 
 /**
@@ -221,8 +244,36 @@ function broadcastSupportTeam() {
  * recebem só o que aparece na fila (nome do cliente e situação), sem dados de contato.
  */
 function emitSupportUpsert(conversation) {
-  io.to(SUPPORT_ROOM).emit('support:upsert', conversation);
-  io.except(SUPPORT_ROOM).emit('support:upsert', support.queueItem(conversation));
+  const box = INBOXES[conversation.inbox];
+  const rooms = conversationRooms(conversation);
+  io.to(rooms).emit(box.event, conversation);
+  io.except(rooms).emit(box.event, support.queueItem(conversation));
+}
+
+/**
+ * Salas de quem acompanha a conversa por dentro: quem atende a fila e o responsável por ela, que pode
+ * ser alguém de fora da fila quando a conversa foi transferida.
+ */
+function conversationRooms(conversation) {
+  const rooms = [INBOXES[conversation.inbox].room];
+  if (conversation.assigneeId) rooms.push(`user:${conversation.assigneeId}`);
+  return rooms;
+}
+
+/**
+ * Leads novos alternam entre quem atende, de preferência entre quem está online. O responsável é
+ * mantido enquanto continuar atendendo leads ou se recebeu a conversa por transferência. Devolve a
+ * conversa, atualizada se mudou.
+ */
+async function assignLead(conversation) {
+  // Quem recebeu a conversa por transferência continua com ela, mesmo sem atender a fila de leads.
+  if (conversation.assigneeId && (conversation.assignedBy || support.isAgent(conversation.assigneeId, 'leads'))) return conversation;
+  const agents = [...support.agents.leads];
+  const online = agents.filter(isOnline);
+  const userId = await support.nextLeadAgent(online.length ? online : agents);
+  if (!userId) return conversation;
+  await support.assign(conversation.id, userId);
+  return support.getConversation(conversation.id);
 }
 
 /** Mensagem no formato do widget: sem dados internos da equipe além do primeiro nome de quem respondeu. */
@@ -239,8 +290,34 @@ function toWidgetMessage(message, clientId) {
 async function supportSystemMessage(conversation, text) {
   const id = await support.createSystemMessage(conversation.id, text);
   const { message } = await store.getMessage(id);
-  io.to(SUPPORT_ROOM).emit('message:new', message);
+  io.to(conversationRooms(conversation)).emit('message:new', message);
   widget.to(roomOfConversation(conversation)).emit('message:new', toWidgetMessage(message));
+}
+
+/**
+ * Grava a mensagem de quem escreve pelo widget e avisa a equipe e as outras abas da pessoa.
+ * `socket` é a conexão que enviou (não recebe a própria mensagem de volta); sem ele, todas recebem.
+ * Devolve { message, conversationId } no formato do widget, ou { error }.
+ */
+async function receiveContactMessage({ clientApp, identity, text, attachmentIds, clientId, socket }) {
+  const created = await support.createContactMessage({ app: clientApp, identity, text, attachmentIds, clientId });
+  if (created.error) return created;
+  const { message } = await store.getMessage(created.messageId);
+  const result = { message: toWidgetMessage(message, clientId), conversationId: created.conversationId };
+  if (created.duplicate) return result; // reenvio de algo que já tinha chegado
+
+  let conversation = await support.getConversation(created.conversationId);
+  if (conversation.inbox === 'leads') conversation = await assignLead(conversation);
+  const box = INBOXES[conversation.inbox];
+  const room = roomOfConversation(conversation);
+  emitSupportUpsert(conversation); // antes da mensagem: a conversa pode ser nova
+  io.to(conversationRooms(conversation)).emit('message:new', message);
+  (socket ? socket.to(room) : widget.to(room)).emit('message:new', result.message);
+  if (!isOpen(box.hours) && await support.claimAutoNotice(conversation.id)) {
+    await supportSystemMessage(conversation,
+      `Recebemos sua mensagem. Nosso atendimento funciona ${box.hours.text}, e respondemos assim que voltarmos.`);
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -547,11 +624,11 @@ async function resolveScope(scope, userId) {
     return { type: 'dm', id: dm.id, dm };
   }
   if (scope?.type === 'support') {
-    // Toda a equipe vê a fila, mas só quem atende abre as conversas. Hoje todo atendente vê todos os
-    // atendimentos; o responsável (assigneeId) é para o encaminhamento futuro.
-    if (!support.isAgent(userId)) return null;
+    // Toda a equipe vê as filas, mas só abre a conversa quem atende a fila dela ou quem a recebeu por
+    // transferência. O responsável (assigneeId) indica de quem é a vez.
     const conversation = await support.getConversation(scope.id);
-    return conversation ? { type: 'support', id: conversation.id, conversation } : null;
+    if (!support.canAccess(userId, conversation)) return null;
+    return { type: 'support', id: conversation.id, conversation };
   }
   return null;
 }
@@ -559,7 +636,7 @@ async function resolveScope(scope, userId) {
 /** Envia um evento para quem pode ver o scope. */
 function emitToScope(scope, event, payload) {
   if (scope.type === 'channel') return io.emit(event, payload);
-  if (scope.type === 'support') return io.to(SUPPORT_ROOM).emit(event, payload);
+  if (scope.type === 'support') return io.to(conversationRooms(scope.conversation)).emit(event, payload);
   const [a, b] = store.dmMembers(scope.dm);
   io.to(`user:${a}`).to(`user:${b}`).emit(event, payload);
 }
@@ -573,11 +650,10 @@ io.on('connection', async (socket) => {
   const firstSocket = userSockets.get(userId).size === 0;
   userSockets.get(userId).add(socket.id);
   if (firstSocket) socket.broadcast.emit('presence', { userId, online: true });
-  const isSupportAgent = support.isAgent(userId);
-  if (isSupportAgent) {
-    socket.join(SUPPORT_ROOM);
-    if (firstSocket) broadcastSupportTeam();
-  }
+  // Filas (suporte, leads) que este usuário atende.
+  const myInboxes = Object.keys(INBOXES).filter((inbox) => support.isAgent(userId, inbox));
+  for (const inbox of myInboxes) socket.join(INBOXES[inbox].room);
+  if (myInboxes.length && firstSocket) broadcastSupportTeam();
 
   // Registrado antes de qualquer await para não perder uma desconexão rápida.
   socket.on('disconnect', () => {
@@ -589,7 +665,7 @@ io.on('connection', async (socket) => {
         userSockets.delete(userId);
         io.emit('presence', { userId, online: false, lastSeen: Date.now() });
         store.touchUser(userId).catch(() => {});
-        if (isSupportAgent) broadcastSupportTeam();
+        if (myInboxes.length) broadcastSupportTeam();
       }
     }
   });
@@ -665,6 +741,7 @@ io.on('connection', async (socket) => {
     if (message.error) return message;
     if (scope.type === 'support') {
       const conversation = await support.getConversation(scope.id);
+      scope.conversation = conversation; // a mensagem pode ter reaberto a conversa
       emitSupportUpsert(conversation);
       widget.to(roomOfConversation(conversation)).emit('message:new', toWidgetMessage(message));
     }
@@ -721,7 +798,7 @@ io.on('connection', async (socket) => {
     const payload = { scope: { type: scope.type, id: scope.id }, userId };
     if (scope.type === 'channel') socket.broadcast.emit('typing', payload);
     else if (scope.type === 'support') {
-      socket.to(SUPPORT_ROOM).emit('typing', payload);
+      socket.to(conversationRooms(scope.conversation)).emit('typing', payload);
       widget.to(roomOfConversation(scope.conversation)).emit('typing', { name: firstName(me.displayName) });
     } else {
       const other = store.dmMembers(scope.dm).find((m) => m !== userId);
@@ -742,6 +819,31 @@ io.on('connection', async (socket) => {
       if (status === 'resolved') await supportSystemMessage(conversation, 'Atendimento encerrado');
     }
     return { conversation };
+  });
+
+  // Quem atende a fila assume uma conversa que estava com outra pessoa (ou sem ninguém).
+  on('support:take', async (p) => {
+    const scope = await resolveScope({ type: 'support', id: p.id }, userId);
+    if (!scope) return { error: 'Atendimento não encontrado.' };
+    if (scope.conversation.assigneeId === userId) return { conversation: scope.conversation };
+    return { conversation: await transferConversation(scope.conversation, userId, userId) };
+  });
+
+  // Passa a conversa para outra pessoa da equipe, que passa a abri-la e respondê-la mesmo sem atender a fila.
+  on('support:transfer', async (p) => {
+    const scope = await resolveScope({ type: 'support', id: p.id }, userId);
+    if (!scope) return { error: 'Atendimento não encontrado.' };
+    const toUserId = Number(p.userId);
+    if (!store.users.has(toUserId)) return { error: 'Pessoa não encontrada.' };
+    if (scope.conversation.assigneeId === toUserId) return { error: 'A conversa já está com essa pessoa.' };
+    return { conversation: await transferConversation(scope.conversation, toUserId, userId) };
+  });
+
+  // Prévia da conversa para quem passa o mouse na fila: toda a equipe vê, sem abrir nem responder.
+  on('support:preview', async (p) => {
+    const conversation = await support.getConversation(p.id);
+    if (!conversation) return { error: 'Atendimento não encontrado.' };
+    return support.preview(conversation.id);
   });
 
   // ----- Mensagens diretas -------------------------------------------------
@@ -806,18 +908,30 @@ io.on('connection', async (socket) => {
   // ----- Estado inicial ------------------------------------------------------
   // Enviado depois de registrar os handlers: o que o cliente emitir logo após conectar não se perde.
   try {
-    // A fila de atendimento aparece para toda a equipe quando há alguém definido como atendente.
-    const [dms, supportConversations] = await Promise.all([
+    // Cada fila aparece para toda a equipe quando há alguém definido para atendê-la.
+    const [dms, supportConversations, leadConversations] = await Promise.all([
       store.listDms(userId),
-      support.agents.size ? support.listConversations() : null,
+      support.agents.support.size ? support.listConversations('support') : null,
+      support.agents.leads.size ? support.listConversations('leads') : null,
     ]);
+    const isSupportAgent = myInboxes.includes('support');
+    const isLeadAgent = myInboxes.includes('leads');
+    // null quando a fila não está em uso. Quem atende (canAnswer) recebe os dados de contato e abre as
+    // conversas; os demais veem a fila e abrem só as conversas transferidas para eles.
+    const queueFor = (inbox, conversations, canAnswer) => conversations && {
+      canAnswer,
+      agentIds: [...support.agents[inbox]],
+      conversations: conversations.map((c) => (canAnswer || c.assigneeId === userId ? c : support.queueItem(c))),
+    };
+    // Conversas que este usuário abre: as das filas que atende e as que recebeu por transferência.
+    const answerable = [...(supportConversations || []), ...(leadConversations || [])].filter((c) => support.canAccess(userId, c));
     const [unread, initial, ownEmail] = await Promise.all([
-      store.unreadSummary(userId, dms, isSupportAgent ? supportConversations.map((c) => c.id) : []),
+      store.unreadSummary(userId, dms, answerable.map((c) => c.id)),
       initialMessages(socket.handshake.auth?.view, userId),
       store.getUserEmail(userId),
     ]);
     socket.emit('init', {
-      me: { ...me, email: ownEmail, support: isSupportAgent },
+      me: { ...me, email: ownEmail, support: isSupportAgent, leads: isLeadAgent },
       socketId: socket.id,
       channels: store.listChannels(),
       users: [...store.users.values()].map((u) => ({ ...u, online: isOnline(u.id), lastSeen: store.lastSeenAt.get(u.id) || null })),
@@ -825,21 +939,16 @@ io.on('connection', async (socket) => {
       dms,
       // Formato antigo (lista só para quem atende), mantido para abas abertas antes da fila para toda a equipe.
       support: isSupportAgent ? supportConversations : null,
-      // null quando o suporte a clientes não está em uso. Só quem atende (canAnswer) recebe os dados de
-      // contato e consegue abrir as conversas; os demais veem a fila.
-      supportQueue: supportConversations && {
-        canAnswer: isSupportAgent,
-        agentIds: [...support.agents],
-        conversations: isSupportAgent ? supportConversations : supportConversations.map((c) => support.queueItem(c)),
-      },
+      supportQueue: queueFor('support', supportConversations, isSupportAgent),
+      leadQueue: queueFor('leads', leadConversations, isLeadAgent),
       unread,
       initial, // mensagens da conversa que o cliente vai abrir (economiza uma ida e volta)
       iceServers: iceServersFor(socket.id),
       maxPeersPerRoom: MAX_PEERS_PER_ROOM,
     });
-    // Aba de atendente carregada antes desta versão: funciona no formato antigo, mas só vê a fila nova ao recarregar.
-    if (isSupportAgent && !(Number(socket.handshake.auth?.client) >= CLIENT_VERSION)) {
-      socket.emit('fatal', { error: 'O UVoz foi atualizado. Recarregue a página (Ctrl+R) para ver a fila de atendimento.' });
+    // Aba de quem atende carregada antes desta versão: funciona no formato antigo, mas só vê as filas novas ao recarregar.
+    if ((myInboxes.length || answerable.length) && !(Number(socket.handshake.auth?.client) >= CLIENT_VERSION)) {
+      socket.emit('fatal', { error: 'O UVoz foi atualizado. Recarregue a página (Ctrl+R) para usar as novidades do atendimento.' });
     }
   } catch (err) {
     console.error('[uvoz] erro ao iniciar sessão:', err);
@@ -847,6 +956,23 @@ io.on('connection', async (socket) => {
     socket.disconnect(true);
   }
 });
+
+/**
+ * Troca o responsável pela conversa e avisa a equipe. Quem a recebe de outra pessoa ganha o aviso e a
+ * contagem de mensagens que ainda não leu; quem a perde e não atende a fila volta a ver só a fila.
+ */
+async function transferConversation(previous, toUserId, byUserId) {
+  await support.assign(previous.id, toUserId, byUserId);
+  const conversation = await support.getConversation(previous.id);
+  emitSupportUpsert(conversation);
+  if (toUserId !== byUserId) {
+    const unread = await store.unreadSummary(toUserId, [], [conversation.id]);
+    io.to(`user:${toUserId}`).emit('support:transferred', {
+      id: conversation.id, byUserId, unread: unread[`s:${conversation.id}`] || null,
+    });
+  }
+  return conversation;
+}
 
 /** Primeira página da conversa que o cliente tinha aberta; null em qualquer problema. */
 async function initialMessages(view, userId) {
@@ -863,10 +989,42 @@ async function initialMessages(view, userId) {
 }
 
 // ---------------------------------------------------------------------------
-// Widget de suporte: clientes das aplicações conectadas
+// Widget: clientes das aplicações conectadas e visitantes do site
 // ---------------------------------------------------------------------------
 const widgetMessagesByContact = new auth.RateLimiter(20, 60 * 1000);
 const widgetUploadsByContact = new auth.RateLimiter(30, 10 * 60 * 1000);
+const visitorsByIp = new auth.RateLimiter(8, 60 * 60 * 1000);
+
+// O que o widget do site mostra antes de o visitante se identificar. Sem autenticação: só dados públicos.
+app.get('/api/widget/apps/:id', asyncRoute(async (req, res) => {
+  const clientApp = await support.getApp(req.params.id);
+  if (!clientApp || clientApp.inbox !== 'leads') return res.status(404).json({ error: 'Chat indisponível.' });
+  res.set('Cache-Control', 'no-store').json({ team: supportTeam('leads') });
+}));
+
+/**
+ * O visitante do site se identifica (nome e WhatsApp) e envia a primeira mensagem. Cria o contato, a
+ * conversa na fila de leads e devolve a chave com que o widget passa a se conectar.
+ */
+app.post('/api/widget/visitors', asyncRoute(async (req, res) => {
+  const clientApp = await support.getApp(req.body?.app);
+  if (!clientApp || clientApp.inbox !== 'leads') return res.status(404).json({ error: 'Chat indisponível.' });
+  const ip = clientIp(req);
+  if (visitorsByIp.blocked(ip)) return res.status(429).json({ error: 'Muitas tentativas. Tente de novo mais tarde.' });
+
+  const parsed = parseLead(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const text = sanitizeText(req.body?.message, MAX_LEAD_MESSAGE_LENGTH);
+  if (!text) return res.status(400).json({ error: 'Escreva sua mensagem.' });
+  visitorsByIp.hit(ip);
+
+  const visitor = await support.createVisitor(clientApp.id, parsed.lead);
+  const sent = await receiveContactMessage({
+    clientApp, identity: visitor.identity, text, attachmentIds: [], clientId: null,
+  });
+  if (sent.error) return res.status(400).json({ error: sent.error });
+  res.status(201).json({ token: visitor.token });
+}));
 
 widget.use(async (socket, next) => {
   try {
@@ -883,10 +1041,11 @@ widget.use(async (socket, next) => {
 
 widget.on('connection', async (socket) => {
   const { app: clientApp, identity } = socket.data;
+  const box = INBOXES[clientApp.inbox];
   const room = contactRoom(clientApp.id, identity.id);
   const limitKey = `${clientApp.id}:${identity.id}`;
   let conversationId = null; // só existe depois da primeira mensagem do cliente
-  socket.join(room);
+  socket.join([room, box.widgetRoom]);
 
   const on = (event, fn) => socket.on(event, async (payload, ack) => {
     const reply = typeof ack === 'function' ? ack : () => {};
@@ -912,23 +1071,12 @@ widget.on('connection', async (socket) => {
     const attachmentIds = Array.isArray(p.attachmentIds) ? p.attachmentIds : [];
     const clientId = typeof p.clientId === 'string' && /^[\w-]{1,40}$/.test(p.clientId) ? p.clientId : null;
     if (!text && !attachmentIds.length) return { error: 'Mensagem vazia.' };
+    if (attachmentIds.length && !box.attachments) return { error: 'Este chat não aceita arquivos.' };
 
-    const created = await support.createContactMessage({ app: clientApp, identity, text, attachmentIds, clientId });
-    if (created.error) return created;
-    conversationId = created.conversationId;
-    const { message } = await store.getMessage(created.messageId);
-    const widgetMessage = toWidgetMessage(message, clientId);
-    if (created.duplicate) return { message: widgetMessage }; // reenvio de algo que já tinha chegado
-
-    const conversation = await support.getConversation(created.conversationId);
-    emitSupportUpsert(conversation); // antes da mensagem: a conversa pode ser nova
-    io.to(SUPPORT_ROOM).emit('message:new', message);
-    socket.to(room).emit('message:new', widgetMessage); // outras abas do mesmo cliente
-    if (!isOpen(SUPPORT_HOURS) && await support.claimAutoNotice(conversation.id)) {
-      await supportSystemMessage(conversation,
-        `Recebemos sua mensagem. Nosso atendimento funciona ${SUPPORT_HOURS.text}, e respondemos assim que voltarmos.`);
-    }
-    return { message: widgetMessage };
+    const sent = await receiveContactMessage({ clientApp, identity, text, attachmentIds, clientId, socket });
+    if (sent.error) return sent;
+    conversationId = sent.conversationId;
+    return { message: sent.message };
   });
 
   on('messages:get', async (p) => {
@@ -941,7 +1089,7 @@ widget.on('connection', async (socket) => {
   socket.on('typing', () => {
     if (!conversationId) return;
     // Mesmo corte de 40 caracteres do nome gravado nas mensagens, para o "digitando" sumir quando a mensagem chega.
-    io.to(SUPPORT_ROOM).emit('typing', { scope: { type: 'support', id: conversationId }, userId: null, name: identity.name.slice(0, 40) });
+    io.to(box.room).emit('typing', { scope: { type: 'support', id: conversationId }, userId: null, name: identity.name.slice(0, 40) });
   });
 
   socket.on('read:mark', (p) => {
@@ -960,9 +1108,9 @@ widget.on('connection', async (socket) => {
       : { messages: [], hasMore: false };
     socket.emit('init', {
       contact: { name: identity.name },
-      team: supportTeam(),
-      topics: SUPPORT_TOPICS,
-      features: { attachments: true },
+      team: supportTeam(clientApp.inbox),
+      topics: box.topics,
+      features: { attachments: box.attachments },
       messages: page.messages.map((m) => toWidgetMessage(m)),
       hasMore: page.hasMore,
       lastReadId: conversation?.contactLastReadId || 0,
@@ -987,6 +1135,7 @@ async function widgetSession(req, res) {
 app.post('/api/widget/attachments', express.raw({ type: 'application/octet-stream', limit: MAX_MESSAGE_ATTACHMENTS }), asyncRoute(async (req, res) => {
   const session = await widgetSession(req, res);
   if (!session) return;
+  if (!INBOXES[session.app.inbox].attachments) return res.status(403).json({ error: 'Este chat não aceita arquivos.' });
   const limitKey = `${session.app.id}:${session.identity.id}`;
   if (widgetUploadsByContact.blocked(limitKey)) return res.status(429).json({ error: 'Muitos arquivos em pouco tempo. Aguarde alguns minutos.' });
   widgetUploadsByContact.hit(limitKey);
@@ -1073,7 +1222,9 @@ async function main() {
     console.log(`[uvoz] rodando em http://${HOST}:${PORT}`);
     if (!ACCESS_CODE) console.log('[uvoz] ATENÇÃO: ACCESS_CODE não definido — qualquer pessoa pode criar conta.');
     console.log(`[uvoz] TURN ${TURN_SECRET && TURN_URLS.length ? 'ativo: ' + TURN_URLS.join(', ') : 'desativado (apenas STUN)'}`);
-    console.log(`[uvoz] suporte: ${support.agents.size} atendente(s); horário ${SUPPORT_HOURS ? SUPPORT_HOURS.text : 'não configurado (sempre aberto)'}`);
+    for (const [inbox, box] of Object.entries(INBOXES)) {
+      console.log(`[uvoz] ${inbox === 'leads' ? 'leads' : 'suporte'}: ${support.agents[inbox].size} atendente(s); horário ${box.hours ? box.hours.text : 'não configurado (sempre aberto)'}`);
+    }
   });
 }
 

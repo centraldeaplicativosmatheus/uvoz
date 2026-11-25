@@ -51,10 +51,13 @@
     users: new Map(), // id -> { id, username, displayName, color, avatarVersion, online, lastSeen }
     voice: new Map(), // socketId -> { socketId, userId, channelId, media }
     dms: new Map(), // dmId -> { id, userId, lastMessageAt }
-    support: null, // fila de atendimento a clientes: id -> { id, status, lastMessageAt, resolvedCount, contact, app }; null se não está em uso
-    supportCanAnswer: false, // só quem atende abre as conversas; os demais veem a fila
-    supportAgentIds: [],
-    supportShowResolved: false,
+    // Conversas de atendimento (clientes) e de leads (visitantes do site) que aparecem nas filas:
+    // id -> { id, inbox: 'support'|'leads', status, assigneeId, lastMessageAt, resolvedCount, contact, app }
+    support: new Map(),
+    // Por fila: { canAnswer, agentIds }; null se a fila não está em uso. Só quem atende (canAnswer)
+    // abre as conversas; os demais veem a fila.
+    inboxes: { support: null, leads: null },
+    showResolved: { support: false, leads: false },
     unread: new Map(), // 'c:geral' | 'd:12' | 's:7' -> { unread, mentions, lastReadId }
     view: null, // { type: 'channel'|'voice'|'dm'|'support', id }
     conv: new Map(), // key -> { list, hasMore, loading, loaded }
@@ -595,7 +598,7 @@
     // "view" vai no handshake para o servidor já devolver as mensagens da conversa aberta junto do init.
     const socket = (state.socket = io({
       // "client" diz ao servidor qual formato de dados este app.js entende (ver CLIENT_VERSION no servidor).
-      auth: (cb) => cb({ token: state.token, view: viewScope() || savedView(), client: 3 }),
+      auth: (cb) => cb({ token: state.token, view: viewScope() || savedView(), client: 5 }),
       transports: ['websocket', 'polling'],
     }));
 
@@ -646,7 +649,7 @@
       u.online = online;
       if (lastSeen) u.lastSeen = lastSeen;
       renderMembers(); renderDms(); renderHeader();
-      if (state.supportAgentIds.includes(userId)) renderSupport();
+      if (Object.values(state.inboxes).some((box) => box?.agentIds.includes(userId))) renderSupport();
     });
     socket.on('user:new', (u) => { state.users.set(u.id, u); userIdx = null; renderMembers(); });
     socket.on('user:updated', onUserUpdated);
@@ -672,12 +675,30 @@
       updateUnreadRow(scope); updateTitle();
     });
     socket.on('typing', onTyping);
-    socket.on('support:upsert', (conversation) => {
-      if (!state.support) return;
-      state.support.set(conversation.id, conversation);
+    const onConversationUpsert = (inbox) => (conversation) => {
+      if (!state.inboxes[inbox]) return;
+      const updated = { ...conversation, inbox };
+      state.support.set(conversation.id, updated);
+      previewCache.delete(conversation.id);
       renderSupport();
-      if (state.view?.type === 'support' && state.view.id === conversation.id) renderHeader();
+      if (state.view?.type !== 'support' || state.view.id !== conversation.id) return;
+      if (canAnswer(updated)) return renderHeader();
+      // A conversa aberta foi transferida para outra pessoa e este usuário não atende a fila dela.
+      state.unread.delete(`s:${conversation.id}`);
+      updateTitle();
+      toast(`A conversa com ${updated.contact.name} foi transferida para outra pessoa.`);
+      openDefault();
+    };
+    socket.on('support:transferred', ({ id, byUserId, unread }) => {
+      const conversation = state.support.get(id);
+      if (!conversation) return;
+      const key = `s:${id}`;
+      if (unread && viewKey() !== key) state.unread.set(key, unread);
+      renderSupport(); updateTitle();
+      toast(`${userName(byUserId)} transferiu para você a conversa com ${conversation.contact.name}.`);
     });
+    socket.on('support:upsert', onConversationUpsert('support'));
+    socket.on('lead:upsert', onConversationUpsert('leads'));
     socket.on('dm:upsert', (dm) => {
       const prev = state.dms.get(dm.id);
       state.dms.set(dm.id, { ...prev, ...dm });
@@ -729,10 +750,11 @@
     userIdx = null;
     state.voice = new Map(data.voice.map((v) => [v.socketId, v]));
     state.dms = new Map(data.dms.map((d) => [d.id, d]));
-    const queue = data.supportQueue;
-    state.support = queue ? new Map(queue.conversations.map((c) => [c.id, c])) : null;
-    state.supportCanAnswer = !!queue?.canAnswer;
-    state.supportAgentIds = queue?.agentIds || [];
+    state.support = new Map();
+    for (const [inbox, queue] of [['support', data.supportQueue], ['leads', data.leadQueue]]) {
+      state.inboxes[inbox] = queue ? { canAnswer: !!queue.canAnswer, agentIds: queue.agentIds || [] } : null;
+      for (const c of queue?.conversations || []) state.support.set(c.id, { ...c, inbox });
+    }
     state.unread = new Map(Object.entries(data.unread));
 
     // Conversas: mantém só a que está aberta (as outras recarregam sob demanda) e a marca para
@@ -806,7 +828,7 @@
 
   function isValidView(v) {
     if (v.type === 'dm') return state.dms.has(Number(v.id));
-    if (v.type === 'support') return state.supportCanAnswer && !!state.support?.has(Number(v.id));
+    if (v.type === 'support') return canAnswer(state.support.get(Number(v.id)));
     const c = channelById(v.id);
     return !!c && ((v.type === 'voice') === (c.type === 'voice'));
   }
@@ -910,23 +932,44 @@
     if (!list.length) $('#dm-list').append(el('li', { class: 'empty-hint muted' }, 'Clique em alguém na lista de membros para conversar.'));
   }
 
+  /** Abre a conversa quem atende a fila dela ou quem a recebeu por transferência. */
+  const canAnswer = (conversation) => !!conversation
+    && (!!state.inboxes[conversation.inbox]?.canAnswer || conversation.assigneeId === state.me.id);
+  const firstNameOf = (user) => String(user?.displayName || '').trim().split(/\s+/)[0] || '';
+
+  const INBOX_UI = {
+    support: {
+      id: 'support', me: 'Você atende os clientes', openLabel: 'Em atendimento',
+      empty: 'Ninguém em atendimento agora.', resolvedLabel: 'Já atendidos',
+    },
+    leads: {
+      id: 'leads', me: 'Você atende os leads do site', openLabel: 'Em aberto',
+      empty: 'Nenhum lead em aberto.', resolvedLabel: 'Já atendidos',
+    },
+  };
+
   /**
-   * Seção "Atendimento": quem atende, os clientes em atendimento e, sob demanda, os já atendidos.
-   * Toda a equipe vê a fila; só quem atende (supportCanAnswer) abre as conversas.
+   * Seções "Atendimento" (clientes) e "Leads" (visitantes do site): quem atende, as conversas em aberto
+   * e, sob demanda, as já atendidas. Toda a equipe vê as filas; só quem atende cada uma abre as conversas.
    */
   function renderSupport() {
-    $('#support-section').hidden = !state.support;
-    if (!state.support) return;
-    const canAnswer = state.supportCanAnswer;
-    const all = [...state.support.values()].sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    for (const inbox of Object.keys(INBOX_UI)) renderInbox(inbox);
+  }
+
+  function renderInbox(inbox) {
+    const ui = INBOX_UI[inbox];
+    const box = state.inboxes[inbox];
+    $(`#${ui.id}-section`).hidden = !box;
+    if (!box) return;
+    const all = [...state.support.values()].filter((c) => c.inbox === inbox).sort((a, b) => b.lastMessageAt - a.lastMessageAt);
     const open = all.filter((c) => c.status === 'open');
     const resolved = all.filter((c) => c.status !== 'open');
 
-    $('#support-agents').replaceChildren(...state.supportAgentIds.map((id) => state.users.get(id)).filter(Boolean).map((u) => {
+    $(`#${ui.id}-agents`).replaceChildren(...box.agentIds.map((id) => state.users.get(id)).filter(Boolean).map((u) => {
       const isMe = u.id === state.me.id;
       return el('li', {
         class: `support-agent ${isMe ? '' : 'clickable'}`,
-        title: isMe ? 'Você atende os clientes' : `Enviar mensagem para ${u.displayName}`,
+        title: isMe ? ui.me : `Enviar mensagem para ${u.displayName}`,
         onclick: isMe ? null : () => openDm(u.id),
       },
       avatarWithPresence(u, 'xs'),
@@ -940,47 +983,182 @@
       const active = state.view?.type === 'support' && state.view.id === c.id;
       const done = c.resolvedCount || 0;
       const history = done ? `${done} ${done === 1 ? 'atendimento concluído' : 'atendimentos concluídos'}` : 'primeiro atendimento';
-      const access = canAnswer
+      // Com quem está a conversa: a vez no rodízio dos leads ou quem a recebeu por transferência.
+      const owner = state.users.get(c.assigneeId) || null;
+      const mine = !!owner && owner.id === state.me.id;
+      const openable = canAnswer(c);
+      const access = openable
         ? { role: 'button', tabindex: 0,
           onclick: () => openView({ type: 'support', id: c.id }),
           onkeydown: (e) => e.key === 'Enter' && openView({ type: 'support', id: c.id }) }
         : {};
       return el('li', {},
         el('div', {
-          class: `channel dm support-row ${isOpen ? '' : 'resolved'} ${canAnswer ? '' : 'readonly'} ${active ? 'active' : ''} ${state.unread.get(key)?.unread ? 'unread' : ''}`,
+          class: `channel dm support-row ${isOpen ? '' : 'resolved'} ${openable ? '' : 'readonly'} ${active ? 'active' : ''} ${state.unread.get(key)?.unread ? 'unread' : ''}`,
           dataset: { key },
-          title: `${c.contact.name} · ${c.app.name} · ${history}${canAnswer ? '' : ' · só quem atende abre a conversa'}`,
+          // Sem "title": o balão de prévia (ao passar o mouse ou focar) já traz estes dados e as mensagens.
+          'aria-label': [c.contact.name, c.app.name, history, owner ? `com ${mine ? 'você' : owner.displayName}` : null,
+            openable ? null : 'só quem atende abre a conversa'].filter(Boolean).join(' · '),
+          onmouseenter: (e) => schedulePreview(c.id, e.currentTarget),
+          onmouseleave: hidePreview,
+          onfocus: (e) => schedulePreview(c.id, e.currentTarget),
+          onblur: hidePreview,
           ...access,
         },
         avatar({ displayName: c.contact.name, color: c.contact.color }, 'xs'),
         el('span', { class: 'channel-name' }, c.contact.name),
         badge(key),
+        isOpen && owner ? el('small', { class: `support-owner ${mine ? 'mine' : ''}` }, mine ? 'você' : firstNameOf(owner)) : null,
         !isOpen && done ? el('span', { class: 'support-count' }, done > 99 ? '99+' : done) : null));
     };
 
-    $('#support-open-label').textContent = `Em atendimento — ${open.length}`;
-    $('#support-list').replaceChildren(...open.map(row));
-    if (!open.length) $('#support-list').append(el('li', { class: 'empty-hint muted' }, 'Ninguém em atendimento agora.'));
+    $(`#${ui.id}-open-label`).textContent = `${ui.openLabel} — ${open.length}`;
+    $(`#${ui.id}-list`).replaceChildren(...open.map(row));
+    if (!open.length) $(`#${ui.id}-list`).append(el('li', { class: 'empty-hint muted' }, ui.empty));
 
     // O servidor envia os atendidos mais recentes; acima desse limite a contagem é "N+".
-    const toggle = $('#support-resolved-toggle');
+    const toggle = $(`#${ui.id}-resolved-toggle`);
+    const expanded = state.showResolved[inbox];
     toggle.hidden = !resolved.length;
     toggle.replaceChildren(
-      el('span', { class: 'support-caret' }, state.supportShowResolved ? '▾' : '▸'),
-      `Já atendidos — ${resolved.length >= 50 ? '50+' : resolved.length}`);
-    toggle.setAttribute('aria-expanded', String(state.supportShowResolved));
-    $('#support-resolved').hidden = !state.supportShowResolved || !resolved.length;
-    $('#support-resolved').replaceChildren(...resolved.map(row));
+      el('span', { class: 'support-caret' }, expanded ? '▾' : '▸'),
+      `${ui.resolvedLabel} — ${resolved.length >= 50 ? '50+' : resolved.length}`);
+    toggle.setAttribute('aria-expanded', String(expanded));
+    $(`#${ui.id}-resolved`).hidden = !expanded || !resolved.length;
+    $(`#${ui.id}-resolved`).replaceChildren(...resolved.map(row));
   }
-  $('#support-resolved-toggle').addEventListener('click', () => {
-    state.supportShowResolved = !state.supportShowResolved;
-    renderSupport();
-  });
+  for (const [inbox, ui] of Object.entries(INBOX_UI)) {
+    $(`#${ui.id}-resolved-toggle`).addEventListener('click', () => {
+      state.showResolved[inbox] = !state.showResolved[inbox];
+      renderInbox(inbox);
+    });
+  }
+  // Prévia da conversa ao passar o mouse na fila: as últimas mensagens, para toda a equipe.
+  const previewCache = new Map(); // id -> { messages, hasMore }; descartada quando a conversa muda
+  const previewPop = $('#support-preview');
+  let previewTimer = null;
+  let previewFor = null; // { id, anchor } da linha sob o mouse
+
+  function schedulePreview(id, anchor) {
+    if (!window.matchMedia('(hover: hover)').matches) return; // em telas de toque não há "passar o mouse"
+    clearTimeout(previewTimer);
+    previewFor = { id, anchor };
+    previewTimer = setTimeout(() => showPreview(id, anchor), 350);
+  }
+
+  function hidePreview() {
+    clearTimeout(previewTimer);
+    previewFor = null;
+    previewPop.hidden = true;
+  }
+
+  function showPreview(id, anchor) {
+    const conversation = state.support.get(id);
+    if (!conversation || !anchor.isConnected) return;
+    renderPreview(conversation, previewCache.get(id) || null, anchor);
+    if (previewCache.has(id)) return;
+    state.socket.emit('support:preview', { id }, (res) => {
+      if (res?.error || !res?.messages) {
+        if (previewFor?.id === id) renderPreview(conversation, { error: res?.error || 'Não foi possível carregar a conversa.' }, anchor);
+        return;
+      }
+      previewCache.set(id, res);
+      if (previewFor?.id === id && previewFor.anchor.isConnected) renderPreview(state.support.get(id) || conversation, res, previewFor.anchor);
+    });
+  }
+
+  function renderPreview(c, data, anchor) {
+    const owner = state.users.get(c.assigneeId);
+    const done = c.resolvedCount || 0;
+    const meta = [c.app.name,
+      c.status === 'open' ? (c.inbox === 'leads' ? 'em aberto' : 'em atendimento') : 'atendido',
+      done ? `${done} ${done === 1 ? 'atendimento concluído' : 'atendimentos concluídos'}` : null,
+      owner ? `com ${owner.id === state.me.id ? 'você' : owner.displayName}` : null].filter(Boolean).join(' · ');
+    const who = (m) => (m.from === 'contact' ? c.contact.name : firstNameOf(state.users.get(m.authorId)) || 'Equipe');
+    const line = (m) => {
+      const files = m.files ? `${m.files === 1 ? '📎 1 arquivo' : `📎 ${m.files} arquivos`}` : '';
+      if (m.from === 'system') return el('li', { class: 'preview-system' }, m.text);
+      return el('li', { class: `preview-msg ${m.from}` },
+        el('div', { class: 'preview-author' }, el('strong', {}, who(m)), el('time', { class: 'muted' }, fmtTime(m.ts))),
+        el('div', { class: 'preview-text' }, [m.text, files].filter(Boolean).join(' ')));
+    };
+    const body = !data ? el('p', { class: 'muted preview-note' }, 'Carregando…')
+      : data.error ? el('p', { class: 'muted preview-note' }, data.error)
+        : !data.messages.length ? el('p', { class: 'muted preview-note' }, 'Nenhuma mensagem ainda.')
+          : el('ul', { class: 'preview-list' },
+            data.hasMore ? el('li', { class: 'preview-system' }, 'mensagens anteriores…') : null,
+            data.messages.map(line));
+    previewPop.replaceChildren(
+      el('header', { class: 'preview-head' },
+        avatar({ displayName: c.contact.name, color: c.contact.color }, 'sm'),
+        el('div', { class: 'preview-title' }, el('strong', {}, c.contact.name), el('small', { class: 'muted' }, meta))),
+      body,
+      canAnswer(c) ? null : el('p', { class: 'muted preview-note' }, 'Só quem atende abre e responde a conversa.'));
+    previewPop.hidden = false;
+    // Ao lado da linha, sem sair da tela; as mensagens mais recentes ficam à vista.
+    const rect = anchor.getBoundingClientRect();
+    const height = previewPop.offsetHeight;
+    const left = Math.min(rect.right + 8, window.innerWidth - previewPop.offsetWidth - 8);
+    const top = Math.max(8, Math.min(rect.top - 12, window.innerHeight - height - 8));
+    previewPop.style.left = `${Math.max(8, left)}px`;
+    previewPop.style.top = `${top}px`;
+    const list = previewPop.querySelector('.preview-list');
+    if (list) list.scrollTop = list.scrollHeight;
+  }
+  $('.sidebar-scroll').addEventListener('scroll', hidePreview, { passive: true });
+
+  const viewedConversation = () => (state.view?.type === 'support' ? state.support.get(state.view.id) : null);
   $('#support-status').addEventListener('click', () => {
-    const conversation = state.view?.type === 'support' ? state.support?.get(state.view.id) : null;
+    const conversation = viewedConversation();
     if (!conversation) return;
     const status = conversation.status === 'open' ? 'resolved' : 'open';
     state.socket.emit('support:status', { id: conversation.id, status }, (res) => res?.error && toast(res.error, 'error'));
+  });
+  $('#support-take').addEventListener('click', () => {
+    const conversation = viewedConversation();
+    if (!conversation) return;
+    state.socket.emit('support:take', { id: conversation.id }, (res) => res?.error && toast(res.error, 'error'));
+  });
+
+  // Transferência: quem está com a conversa escolhe a pessoa da equipe que vai continuar o atendimento.
+  const transferDialog = $('#transfer-dialog');
+  function renderTransferResults() {
+    const conversation = viewedConversation();
+    if (!conversation) return transferDialog.close();
+    const q = normalize($('#transfer-search').value);
+    const agentIds = state.inboxes[conversation.inbox]?.agentIds || [];
+    const list = [...state.users.values()]
+      .filter((u) => u.id !== state.me.id && u.id !== conversation.assigneeId
+        && (!q || normalize(u.displayName).includes(q) || u.username.includes(q)))
+      .sort((a, b) => (agentIds.includes(b.id) - agentIds.includes(a.id)) || (b.online - a.online)
+        || a.displayName.localeCompare(b.displayName, 'pt-BR'))
+      .slice(0, 30);
+    $('#transfer-results').replaceChildren(...list.map((u) => el('li', {},
+      el('button', { type: 'button', class: 'dm-result', onclick: () => transferTo(conversation, u) },
+        avatarWithPresence(u, 'sm'),
+        el('span', { class: 'member-info' }, el('span', {}, u.displayName),
+          el('small', { class: 'muted' }, agentIds.includes(u.id) ? `@${u.username} · atende esta fila` : `@${u.username}`))))));
+    if (!list.length) $('#transfer-results').append(el('li', { class: 'muted empty-hint' }, 'Ninguém encontrado.'));
+  }
+  function transferTo(conversation, user) {
+    transferDialog.close();
+    state.socket.emit('support:transfer', { id: conversation.id, userId: user.id }, (res) => {
+      if (res?.error) return toast(res.error, 'error');
+      toast(`Conversa com ${conversation.contact.name} transferida para ${user.displayName}.`);
+    });
+  }
+  $('#support-transfer').addEventListener('click', () => {
+    const conversation = viewedConversation();
+    if (!conversation) return;
+    $('#transfer-title').textContent = `Transferir a conversa com ${conversation.contact.name}`;
+    $('#transfer-search').value = '';
+    renderTransferResults();
+    transferDialog.showModal();
+    $('#transfer-search').focus();
+  });
+  $('#transfer-search').addEventListener('input', renderTransferResults);
+  $('#transfer-search').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); $('#transfer-results .dm-result')?.click(); }
   });
 
   function renderMembers() {
@@ -1091,7 +1269,7 @@
       $('#composer-input').placeholder = view.type === 'dm'
         ? `Mensagem para @${state.users.get(state.dms.get(view.id)?.userId)?.displayName || ''}`
         : view.type === 'support'
-          ? `Responder a ${state.support?.get(view.id)?.contact.name || 'cliente'}`
+          ? `Responder a ${state.support.get(view.id)?.contact.name || 'cliente'}`
           : `Conversar em #${channelById(view.id)?.name || ''}`;
       $('#composer-input').value = storage.get(`uvoz:draft:${key}`) || '';
       autoGrow();
@@ -1103,6 +1281,13 @@
     markActiveRow();
   }
 
+  /** Link para continuar a conversa com o lead no WhatsApp; números sem código do país são do Brasil. */
+  function whatsappLink(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (digits.length < 10) return null;
+    return `https://wa.me/${digits.length <= 11 ? `55${digits}` : digits}`;
+  }
+
   function renderHeader() {
     const v = state.view;
     if (!v) return;
@@ -1110,16 +1295,28 @@
     const av = $('#header-avatar');
     av.hidden = true;
     icon.hidden = false;
-    const conversation = v.type === 'support' ? state.support?.get(v.id) : null;
+    const conversation = v.type === 'support' ? state.support.get(v.id) : null;
     const statusButton = $('#support-status');
+    const isLead = conversation?.inbox === 'leads';
+    const whatsapp = isLead ? whatsappLink(conversation.contact.phone) : null;
     statusButton.hidden = !conversation;
+    // "Assumir" aparece quando a conversa está com outra pessoa (nos leads, também quando está sem ninguém).
+    $('#support-take').hidden = !conversation || conversation.assigneeId === state.me.id
+      || (!isLead && !conversation.assigneeId);
+    $('#support-transfer').hidden = !conversation;
+    $('#lead-whatsapp').hidden = !whatsapp;
+    if (whatsapp) $('#lead-whatsapp').href = whatsapp;
     if (conversation) {
       const { contact, app } = conversation;
+      const owner = state.users.get(conversation.assigneeId) || null;
+      const withOwner = owner ? `com ${owner.id === state.me.id ? 'você' : owner.displayName}` : null;
       icon.hidden = true;
       av.hidden = false;
       av.replaceChildren(avatar({ displayName: contact.name, color: contact.color }, 'xs'));
       $('#header-title').textContent = contact.name;
-      $('#header-topic').textContent = [app.name, contact.email, `conta ${contact.externalId}`].filter(Boolean).join(' · ');
+      $('#header-topic').textContent = (isLead
+        ? [app.name, contact.phone, contact.email, withOwner || 'sem responsável']
+        : [app.name, contact.email, `conta ${contact.externalId}`, withOwner]).filter(Boolean).join(' · ');
       statusButton.textContent = conversation.status === 'open' ? 'Resolver' : 'Reabrir';
       statusButton.classList.toggle('btn-primary', conversation.status === 'open');
     } else if (v.type === 'dm') {
@@ -1492,7 +1689,7 @@
             class: m.author.id && m.author.id !== state.me.id ? 'clickable' : '',
             onclick: m.author.id && m.author.id !== state.me.id ? () => openDm(m.author.id) : null,
           }, name),
-          m.fromContact ? el('small', { class: 'msg-tag' }, 'cliente') : null,
+          m.fromContact ? el('small', { class: 'msg-tag' }, state.support.get(m.scope.id)?.inbox === 'leads' ? 'lead' : 'cliente') : null,
           el('time', { class: 'muted', title: FULL_FMT.format(m.ts) }, fmtTime(m.ts))),
         messageBody(m)),
       messageActions(m));
@@ -1501,8 +1698,20 @@
   function welcomeNode() {
     const v = state.view;
     if (v.type === 'support') {
-      const conversation = state.support?.get(v.id);
+      const conversation = state.support.get(v.id);
       const contact = conversation?.contact;
+      if (conversation?.inbox === 'leads') {
+        const whatsapp = whatsappLink(contact.phone);
+        const detail = (label, value) => (value ? el('p', { class: 'muted lead-detail' }, el('strong', {}, `${label}: `), value) : null);
+        return el('div', { class: 'messages-welcome' },
+          avatar({ displayName: contact.name, color: contact.color }, 'xl'),
+          el('h2', {}, contact.name),
+          el('p', { class: 'muted' }, `Lead que chegou pelo chat de ${conversation.app.name}. As respostas aparecem para a pessoa no próprio site.`),
+          detail('WhatsApp', whatsapp
+            ? el('a', { href: whatsapp, target: '_blank', rel: 'noopener noreferrer' }, contact.phone) : contact.phone),
+          detail('E-mail', contact.email),
+          detail('Página', contact.source));
+      }
       return el('div', { class: 'messages-welcome' },
         avatar({ displayName: contact?.name, color: contact?.color }, 'xl'),
         el('h2', {}, contact?.name || ''),
@@ -2072,7 +2281,8 @@
     if (!document.hidden && document.hasFocus()) return;
     const author = state.users.get(m.author.id)?.displayName || m.author.name;
     const where = m.scope.type === 'dm' ? 'mensagem direta'
-      : m.scope.type === 'support' ? 'suporte' : `#${channelById(m.scope.id)?.name || ''}`;
+      : m.scope.type === 'support' ? (state.support.get(m.scope.id)?.inbox === 'leads' ? 'lead do site' : 'suporte')
+        : `#${channelById(m.scope.id)?.name || ''}`;
     try {
       const n = new Notification(`${author} (${where})`, { body: m.text.slice(0, 180), tag: keyOf(m.scope) });
       n.onclick = () => { window.focus(); openView(m.scope); n.close(); };

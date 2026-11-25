@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 /**
- * Cadastra uma aplicação que pode instalar o widget de suporte e mostra o segredo dela.
- * O segredo fica no servidor da aplicação e assina o token de cada cliente.
+ * Cadastra onde o widget pode ser instalado.
+ *   - Aplicação com clientes logados (suporte): mostra o segredo, que fica no servidor da aplicação e
+ *     assina o token de cada cliente.
+ *   - Site público (--leads): visitantes sem conta, que caem na seção "Leads"; mostra o HTML para colar no site.
  * Uso (na pasta do site):
  *   node scripts/support-app.js <id> "<Nome>"            cria (id: letras minúsculas, números e hífen)
+ *   node scripts/support-app.js <id> "<Nome>" --leads    cria um site público
  *   node scripts/support-app.js <id> --novo-segredo      troca o segredo (o anterior para de valer em até 1 minuto)
  *   node scripts/support-app.js                          lista as aplicações
  */
@@ -16,13 +19,16 @@ const { createPool, migrate } = require('../lib/db');
 (async () => {
   const args = process.argv.slice(2);
   const rotate = args.includes('--novo-segredo');
+  const leads = args.includes('--leads');
   const [id, name] = args.filter((a) => !a.startsWith('--'));
   const pool = createPool();
   await migrate(pool);
 
   if (!id) {
-    const [rows] = await pool.query('SELECT id, name FROM support_apps ORDER BY id');
-    console.log(rows.length ? rows.map((r) => `${r.id} (${r.name})`).join('\n') : 'Nenhuma aplicação cadastrada.');
+    const [rows] = await pool.query('SELECT id, name, kind FROM support_apps ORDER BY id');
+    console.log(rows.length
+      ? rows.map((r) => `${r.id} (${r.name}) — ${r.kind === 'leads' ? 'site público, leads' : 'clientes logados, suporte'}`).join('\n')
+      : 'Nenhuma aplicação cadastrada.');
     await pool.end();
     return;
   }
@@ -32,17 +38,24 @@ const { createPool, migrate } = require('../lib/db');
   }
 
   const secret = crypto.randomBytes(32).toString('hex');
-  const [existing] = await pool.query('SELECT id FROM support_apps WHERE id = ?', [id]);
+  const [existing] = await pool.query('SELECT id, kind FROM support_apps WHERE id = ?', [id]);
   if (rotate) {
     if (!existing.length) { console.error(`Aplicação "${id}" não encontrada.`); process.exit(1); }
+    if (existing[0].kind === 'leads') { console.error(`"${id}" é um site público: não usa segredo.`); process.exit(1); }
     await pool.query('UPDATE support_apps SET secret = ? WHERE id = ?', [secret, id]);
     console.log(`Segredo de "${id}" trocado.`);
   } else {
     if (existing.length) { console.error(`A aplicação "${id}" já existe. Use --novo-segredo para trocar o segredo.`); process.exit(1); }
     if (!name) { console.error('Uso: node scripts/support-app.js <id> "<Nome>"'); process.exit(1); }
-    await pool.query('INSERT INTO support_apps (id, name, secret, created_at) VALUES (?, ?, ?, ?)', [id, name.slice(0, 80), secret, Date.now()]);
+    await pool.query('INSERT INTO support_apps (id, name, secret, kind, created_at) VALUES (?, ?, ?, ?, ?)',
+      [id, name.slice(0, 80), secret, leads ? 'leads' : 'support', Date.now()]);
     console.log(`Aplicação "${id}" criada.`);
   }
-  console.log(`Segredo (guarde no servidor da aplicação; não aparece de novo):\n${secret}`);
+  if (leads) {
+    const origin = (process.env.PUBLIC_URL || 'https://uvoz.on-forge.com').replace(/\/+$/, '');
+    console.log(`Cole no site, antes de </body>:\n<script src="${origin}/widget/loader.js" data-app="${id}" async></script>`);
+  } else {
+    console.log(`Segredo (guarde no servidor da aplicação; não aparece de novo):\n${secret}`);
+  }
   await pool.end();
 })().catch((err) => { console.error(err); process.exit(1); });
