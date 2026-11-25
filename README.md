@@ -16,7 +16,7 @@ Plataforma de comunicação interna com:
   microfone antes de enviar (botão **Ruído** ou `Ctrl+B`; ligada por padrão e lembrada pelo navegador).
 - **Compartilhamento de tela** (com áudio do sistema/aba quando o navegador permite). A tela compartilhada ganha destaque automaticamente.
 - **Presença**: membros online/offline ("visto há…"), em qual sala cada um está, ícones de câmera, microfone mudo e selo "AO VIVO".
-- Criação e exclusão de canais e salas, modo foco e tela cheia por participante, atalhos `Ctrl+D` (microfone), `Ctrl+E` (câmera), `Ctrl+B` (supressão de ruído) e `↑` (editar sua última mensagem), layout responsivo para celular.
+- Criação e exclusão de canais e salas, modo foco e tela cheia por participante, atalhos `Ctrl+D` (microfone), `Ctrl+E` (câmera), `Ctrl+B` (supressão de ruído) e `↑` (editar sua última mensagem), layout adaptável para desktop, notebooks, tablets, celulares e telas baixas.
 
 ## Como funciona
 
