@@ -114,6 +114,17 @@ svg {
   transition: background .15s, border-color .15s;
 }
 .w-topic:hover { background: var(--surface-2); border-color: #3c5a8c; }
+.w-help {
+  display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); color: var(--text); text-decoration: none; font-weight: 600;
+  transition: background .15s, border-color .15s;
+}
+.w-help:hover { background: var(--surface-2); border-color: var(--line-2); }
+.w-help span { flex: 1; min-width: 0; }
+.w-help small { display: block; color: var(--text-2); font-size: 12.5px; font-weight: 400; }
+.w-help svg { color: var(--text-3); }
+.w-help svg:last-child { width: 16px; height: 16px; }
 
 .w-list { list-style: none; margin: auto 0 0; padding: 0; display: flex; flex-direction: column; }
 .w-welcome:not([hidden]) + .w-list { margin-top: 0; }

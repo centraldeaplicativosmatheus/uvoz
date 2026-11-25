@@ -1,0 +1,185 @@
+/*
+ * Central de Ajuda — mesmas cores do widget de suporte (public/widget/widget.css).
+ */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/widget/fonts/inter-latin-wght-normal.woff2") format("woff2");
+}
+
+:root {
+  --bg: #0a1830;
+  --bg-head: #0c1d3a;
+  --surface: #0d2241;
+  --surface-2: #132b50;
+  --line: #1e3251;
+  --line-2: #2c446b;
+  --text: #f3f6fb;
+  --text-2: #a9b8d0;
+  --text-3: #7c8fae;
+  --red: #db3240;
+  --red-2: #c52937;
+  --amber: #f0b54a;
+  --link: #8fb8ff;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --top: 60px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-padding-top: calc(var(--top) + 12px); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+[hidden] { display: none !important; }
+a { color: var(--link); }
+svg {
+  width: 20px; height: 20px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+:focus-visible { outline: 2px solid #e4eaf4; outline-offset: 2px; }
+.h-main:focus { outline: none; }
+
+/* ---------- Barra superior ---------- */
+.h-top {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 16px;
+  height: var(--top); padding: 0 20px;
+  background: var(--bg-head);
+  border-bottom: 1px solid var(--line);
+}
+.h-brand {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  color: var(--text); text-decoration: none; font-size: 15px; white-space: nowrap;
+}
+.h-brand b { font-weight: 700; }
+.h-mark {
+  display: grid; place-items: center; width: 34px; height: 34px; flex: none;
+  border-radius: 10px; background: var(--red); color: #fff;
+}
+.h-search {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: auto; width: min(340px, 100%); padding: 0 12px; height: 38px;
+  border: 1px solid var(--line-2); border-radius: 10px;
+  background: var(--bg); color: var(--text-3);
+}
+.h-search:focus-within { border-color: #4a6aa0; }
+.h-search input {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: none;
+  color: var(--text); font: inherit; font-size: 14px;
+}
+.h-search input::placeholder { color: var(--text-3); }
+
+/* ---------- Estrutura ---------- */
+.h-layout { display: flex; align-items: flex-start; max-width: 1180px; margin: 0 auto; }
+.h-nav {
+  position: sticky; top: var(--top);
+  width: 250px; flex: none; max-height: calc(100vh - var(--top)); overflow-y: auto;
+  padding: 24px 12px 32px 20px;
+}
+.h-nav h2 {
+  margin: 0 0 8px 10px; font-size: 11.5px; font-weight: 600; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.h-nav a {
+  display: block; padding: 6px 10px; border-radius: 8px;
+  color: var(--text-2); text-decoration: none; font-size: 14px; line-height: 1.35;
+}
+.h-nav a:hover { background: var(--surface); color: var(--text); }
+.h-nav a[aria-current] { background: var(--surface-2); color: var(--text); font-weight: 600; }
+.h-nav-empty { margin: 0 10px; color: var(--text-3); font-size: 14px; }
+.h-main { flex: 1; min-width: 0; padding: 32px 28px 80px; }
+.h-loading { color: var(--text-3); padding: 32px 20px; }
+
+/* ---------- Início ---------- */
+.h-home h1 { margin: 0 0 8px; font-size: 30px; line-height: 1.2; font-weight: 800; letter-spacing: -0.025em; }
+.h-lead { margin: 0 0 20px; max-width: 640px; color: var(--text-2); }
+.h-count { margin: 24px 0 12px; color: var(--text-3); font-size: 13px; }
+.h-grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;
+}
+.h-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); color: var(--text); text-decoration: none; font-weight: 600;
+  transition: background .15s, border-color .15s;
+}
+.h-card:hover { background: var(--surface-2); border-color: var(--line-2); }
+.h-card svg { width: 16px; height: 16px; color: var(--text-3); }
+.h-card small { display: block; margin-top: 2px; color: var(--text-3); font-size: 12.5px; font-weight: 400; line-height: 1.4; }
+
+/* ---------- Tutorial ---------- */
+.h-article { max-width: 760px; }
+.h-back {
+  display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px;
+  color: var(--text-2); text-decoration: none; font-size: 14px;
+}
+.h-back:hover { color: var(--text); }
+.h-back svg { width: 16px; height: 16px; }
+.h-article h1 { margin: 0 0 20px; font-size: 28px; line-height: 1.2; font-weight: 800; letter-spacing: -0.025em; }
+.h-article h2 { margin: 36px 0 12px; font-size: 19px; line-height: 1.35; font-weight: 700; }
+.h-article p { margin: 0 0 12px; overflow-wrap: anywhere; }
+.h-article p.h-step { margin-top: 26px; font-size: 16px; font-weight: 600; }
+.h-article h1 + p.h-step { margin-top: 0; }
+.h-article ul, .h-article ol { margin: 0 0 14px; padding-left: 22px; }
+.h-article li { margin-bottom: 6px; }
+.h-article li > :last-child { margin-bottom: 0; }
+.h-article li::marker { color: var(--text-3); }
+.h-article code {
+  padding: 1px 6px; border-radius: 6px; background: var(--surface-2);
+  font: 13px/1.5 var(--mono); overflow-wrap: anywhere;
+}
+.h-article pre {
+  margin: 0 0 14px; padding: 14px 16px; overflow-x: auto;
+  border: 1px solid var(--line); border-radius: 10px; background: #071226;
+}
+.h-article pre code { padding: 0; background: none; white-space: pre-wrap; }
+.h-img { display: block; width: fit-content; max-width: 100%; margin: 6px 0 18px; }
+.h-img img {
+  display: block; max-width: 100%; height: auto;
+  border: 1px solid var(--line-2); border-radius: 10px; background: #fff;
+}
+.h-note {
+  margin: 0 0 18px; padding: 12px 16px;
+  border: 1px solid rgba(240, 181, 74, .35); border-radius: 10px;
+  background: rgba(240, 181, 74, .1);
+}
+.h-note.is-danger { border-color: rgba(219, 50, 64, .5); background: rgba(219, 50, 64, .12); }
+.h-note > :last-child { margin-bottom: 0; }
+.h-button {
+  display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 18px; padding: 10px 18px;
+  border-radius: 10px; background: var(--red); color: #fff; text-decoration: none; font-weight: 600;
+}
+.h-button:hover { background: var(--red-2); }
+.h-video {
+  position: relative; margin: 6px 0 18px; aspect-ratio: 16 / 9;
+  border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: #000;
+}
+.h-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.h-foot {
+  margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line);
+  color: var(--text-3); font-size: 13.5px;
+}
+
+@media (max-width: 860px) {
+  .h-nav { display: none; }
+  .h-main { padding: 24px 16px 64px; }
+  .h-top { padding: 0 12px; gap: 10px; }
+  .h-brand span:last-child { display: none; }
+  .h-search { width: auto; flex: 1; }
+  .h-home h1 { font-size: 25px; }
+  .h-article h1 { font-size: 24px; }
+  .h-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+@media (min-width: 861px) {
+  .h-back { display: none; }
+}
