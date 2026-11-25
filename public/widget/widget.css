@@ -115,7 +115,7 @@ svg {
 }
 .w-topic:hover { background: var(--surface-2); border-color: #3c5a8c; }
 .w-help {
-  display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 18px; padding: 12px 14px; text-align: left;
   border: 1px solid var(--line); border-radius: 12px;
   background: var(--surface); color: var(--text); text-decoration: none; font-weight: 600;
   transition: background .15s, border-color .15s;
@@ -125,6 +125,27 @@ svg {
 .w-help small { display: block; color: var(--text-2); font-size: 12.5px; font-weight: 400; }
 .w-help svg { color: var(--text-3); }
 .w-help svg:last-child { width: 16px; height: 16px; }
+
+/* ---------- Tutoriais (painel sobre a conversa) ---------- */
+.w-panel {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+}
+.w-panel-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.w-panel-back, .w-panel-link {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px;
+  border: 0; border-radius: 8px; background: none;
+  color: var(--text-2); font-size: 13px; font-weight: 500; text-decoration: none;
+}
+.w-panel-back:hover, .w-panel-link:hover { background: var(--surface-2); color: var(--text); }
+.w-panel-back svg, .w-panel-link svg { width: 16px; height: 16px; }
+.w-panel iframe { flex: 1; min-height: 0; width: 100%; border: 0; background: var(--bg); }
+.w-icon-btn[aria-expanded="true"] { background: var(--surface-2); color: var(--text); }
 
 .w-list { list-style: none; margin: auto 0 0; padding: 0; display: flex; flex-direction: column; }
 .w-welcome:not([hidden]) + .w-list { margin-top: 0; }

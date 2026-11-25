@@ -170,6 +170,12 @@ svg {
   color: var(--text-3); font-size: 13.5px;
 }
 
+.is-embed { --top: 52px; }
+.is-embed .h-brand { display: none; }
+.is-embed .h-top { padding: 0 12px; }
+.is-embed .h-search { width: auto; flex: 1; height: 36px; }
+.is-embed .h-main { padding-top: 18px; }
+
 @media (max-width: 860px) {
   .h-nav { display: none; }
   .h-main { padding: 24px 16px 64px; }

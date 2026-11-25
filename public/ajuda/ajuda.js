@@ -31,6 +31,9 @@
   let data = null;
   let tutorials = [];
 
+  // Aberta dentro do widget de suporte, a página dispensa a marca no topo.
+  if (window.self !== window.top) document.documentElement.classList.add('is-embed');
+
   function el(tag, props, ...children) {
     const node = document.createElement(tag);
     if (props) Object.assign(node, props);
