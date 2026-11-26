@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0c1d3a" />
+  <meta name="description" content="Integre plataformas à Unicopag e automatize operações, rastreio, campanhas, logística e mais com nosso passo a passo." />
+  <title>Central de Ajuda Unicopag</title>
+  <link rel="icon" href="/icons/icon-192.png" />
+  <link rel="preload" href="/widget/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/ajuda/ajuda.css" />
+</head>
+<body>
+  <header class="h-top">
+    <a class="h-brand" href="/ajuda" data-nav>
+      <span class="h-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20M8.5 8h7M8.5 12h5"/></svg>
+      </span>
+      <span>Central de Ajuda <b>Unicopag</b></span>
+    </a>
+    <label class="h-search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="search" type="search" placeholder="Buscar tutorial" aria-label="Buscar tutorial" autocomplete="off" />
+    </label>
+  </header>
+
+  <div class="h-layout">
+    <nav id="nav" class="h-nav" aria-label="Tutoriais"></nav>
+    <main id="main" class="h-main" tabindex="-1">
+      <p class="h-loading">Carregando…</p>
+    </main>
+  </div>
+
+  <noscript><p class="h-loading">Ative o JavaScript para ver os tutoriais.</p></noscript>
+  <script src="/ajuda/ajuda.js" defer></script>
+</body>
+</html>

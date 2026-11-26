@@ -82,6 +82,7 @@ label input:focus { box-shadow: 0 0 0 2px var(--brand); }
   --members-column: clamp(180px, 15vw, 240px);
   display: grid;
   grid-template-columns: var(--rail-column) var(--sidebar-column) minmax(0, 1fr) var(--members-column);
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   height: 100vh;
@@ -136,7 +137,7 @@ body.hide-members .members { display: none; }
 .main-header { height: 48px; min-width: 0; padding: 0 12px 0 16px; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 0 rgba(0,0,0,.25); flex: none; z-index: 1; }
 .main-header > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .header-icon { color: var(--text-3); font-size: 22px; display: grid; place-items: center; }
-.header-topic { padding-left: 12px; margin-left: 4px; border-left: 1px solid var(--bg-active); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.header-topic { padding-left: 12px; margin-left: 4px; border-left: 1px solid var(--bg-active); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex-shrink: 9999; /* encolhe antes do título */ }
 .mobile-only { display: none; }
 
 /* ---------- Chat ---------- */
@@ -316,6 +317,15 @@ body.hide-members .members { display: none; }
 
 @media (max-width: 480px) {
   .sidebar { width: min(280px, 88vw); }
+  .main-header { gap: 6px; padding: 0 8px; }
+  /* Lead de outra pessoa: com "Assumir" na barra, o WhatsApp fica só no início da conversa. */
+  #support-take:not([hidden]) + #lead-whatsapp { display: none; }
+  .msg { gap: 8px; padding-right: 8px; padding-left: 8px; }
+  .msg.grouped { padding-left: 56px; }
+  .msg-head { flex-wrap: wrap; gap: 2px 6px; }
+  .composer-wrap { padding-right: 8px; padding-left: 8px; }
+  .attachment-list { max-height: 96px; overflow: auto; }
+  .profile-photo-content { padding: 16px; }
 }
 
 @media (max-height: 500px) {
@@ -455,5 +465,26 @@ html, body { overscroll-behavior: none; }
 .support-row.readonly.resolved:hover { color: var(--text-3); }
 .support-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--bg-active); color: var(--text-2); font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; flex: none; }
 .support-status { padding: 6px 12px; font-size: 13px; flex: none; }
+a.support-status { color: inherit; text-decoration: none; white-space: nowrap; }
+.support-owner { flex: none; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-3); }
+.support-owner.mine { color: var(--text-2); font-weight: 600; }
+.lead-detail { margin-top: 4px; overflow-wrap: anywhere; }
+.lead-detail strong { color: var(--text-2); font-weight: 600; }
+.transfer-hint { margin: -8px 0 0; font-size: 13px; }
+/* Prévia do atendimento ao passar o mouse na fila; não captura o mouse para não atrapalhar a lista. */
+.support-preview { position: fixed; z-index: 40; width: min(340px, calc(100vw - 16px)); padding: 12px; border-radius: 8px; background: #111214; color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.5); pointer-events: none; display: grid; gap: 10px; }
+.support-preview[hidden] { display: none; }
+.preview-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.preview-title { display: grid; min-width: 0; }
+.preview-title strong, .preview-title small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-title small { font-size: 12px; }
+.preview-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: min(320px, calc(100dvh - 160px)); overflow: hidden; }
+.preview-msg { padding-left: 8px; border-left: 2px solid var(--bg-active); min-width: 0; }
+.preview-msg.contact { border-left-color: var(--brand); }
+.preview-author { display: flex; align-items: baseline; gap: 6px; font-size: 12px; }
+.preview-author time { font-size: 11px; }
+.preview-text { font-size: 13px; color: var(--text-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.preview-system { font-size: 11px; color: var(--text-3); text-align: center; }
+.preview-note { margin: 0; font-size: 12px; }
 .msg.system { justify-content: center; margin-top: 14px; padding: 2px 16px; font-size: 12px; color: var(--text-3); text-align: center; }
 .msg-tag { padding: 1px 6px; border-radius: 4px; background: var(--bg-active); color: var(--text-2); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }

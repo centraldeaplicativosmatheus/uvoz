@@ -5,6 +5,10 @@
  * o identificador do aplicativo e o token assinado da conta por postMessage; o token
  * nunca vai na URL.
  *
+ * No site público (visitantes sem conta) não há token assinado: o visitante informa nome e
+ * WhatsApp e escreve a primeira mensagem (POST /api/widget/visitors), e recebe uma chave que
+ * passa a valer como token. A página hospedeira guarda essa chave para as próximas visitas.
+ *
  * Contrato com o servidor (namespace "/widget" do Socket.io, auth { app, token }):
  *
  *   servidor -> widget
@@ -27,6 +31,9 @@
  *
  *   Recusa de conexão (connect_error.message): TOKEN_EXPIRADO, TOKEN_INVALIDO, APP_INVALIDO.
  *
+ *   Visitantes do site: GET /api/widget/apps/:app -> { team } (antes de se identificar);
+ *   POST /api/widget/visitors { app, name, phone, email, message, source } -> { token } | { error }.
+ *
  *   Anexos: POST /api/widget/attachments (corpo binário, cabeçalhos Authorization: Bearer <token>,
  *   X-Widget-App e X-File-Name) -> { attachment }; GET /api/widget/attachments/:id com os mesmos
  *   cabeçalhos de autenticação. Resposta 401 com { code: 'TOKEN_EXPIRADO' } pede um token novo.
@@ -43,21 +50,29 @@
 
   const $ = (id) => document.getElementById(id);
   const ui = {
-    status: $('status'), statusText: $('status-text'), close: $('close'), banner: $('banner'),
+    title: $('title'), status: $('status'), statusText: $('status-text'), close: $('close'), banner: $('banner'),
     scroll: $('scroll'), older: $('older'), welcome: $('welcome'), welcomeTitle: $('welcome-title'),
     welcomeText: $('welcome-text'), topics: $('topics'), list: $('messages'), typing: $('typing'),
     typingText: $('typing-text'), jump: $('jump'), composer: $('composer'), staged: $('staged'),
     attach: $('attach'), input: $('input'), send: $('send'), file: $('file'),
+    head: document.querySelector('.w-head'), help: $('help'), helpCard: $('help-card'), helpPanel: $('help-panel'),
+    helpBack: $('help-back'), helpOpen: $('help-open'), helpFrame: $('help-frame'),
+    lead: $('lead'), leadText: $('lead-text'), leadName: $('lead-name'), leadPhone: $('lead-phone'),
+    leadEmail: $('lead-email'), leadMessage: $('lead-message'), leadError: $('lead-error'), leadSubmit: $('lead-submit'),
   };
 
   const state = {
     open: false, ready: false, connected: false, fatal: false,
+    identifying: false, // visitante do site preenchendo nome e contato, antes de a conversa existir
+    teamKnown: false, // o nome e a situação da equipe já chegaram do servidor
     contact: null, team: { name: 'Suporte', online: false, hours: null },
     features: { attachments: false }, topics: [],
     messages: [], hasMore: false, lastReadId: 0, unread: 0,
     staged: [],
   };
   let transport = null;
+  let visitorApi = null;
+  let config = null;
   let parentOrigin = null;
   let booted = false;
 
@@ -120,6 +135,29 @@
   }
 
   const post = (message) => { if (parentOrigin) window.parent.postMessage(message, parentOrigin); };
+
+  let demoScript = null;
+  const loadDemo = () => (demoScript = demoScript || loadScript('demo-transport.js'));
+
+  // ---------------------------------------------------------------------------
+  // Visitantes do site (HTTP, antes de existir uma conversa)
+  // ---------------------------------------------------------------------------
+  const offline = () => { throw new Error('Sem conexão. Tente de novo em instantes.'); };
+  const httpVisitorApi = {
+    async info(app) {
+      const res = await fetch(`/api/widget/apps/${encodeURIComponent(app)}`);
+      if (!res.ok) throw new Error('Chat indisponível.');
+      return res.json();
+    },
+    async create(lead) {
+      const res = await fetch('/api/widget/visitors', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lead),
+      }).catch(offline);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.token) throw new Error(data.error || 'Não foi possível enviar. Tente de novo.');
+      return data;
+    },
+  };
 
   // ---------------------------------------------------------------------------
   // Transporte real (Socket.io)
@@ -214,9 +252,19 @@
   // ---------------------------------------------------------------------------
   function renderStatus() {
     let text = 'Conectando…';
-    if (state.ready) text = state.team.online ? 'Online agora' : (state.team.hours || 'Respondemos assim que possível');
+    if (state.teamKnown) {
+      text = state.team.online ? 'Online agora' : (state.team.hours || 'Respondemos assim que possível');
+      ui.title.textContent = state.team.name;
+      document.title = state.team.name;
+    }
     ui.statusText.textContent = text;
-    ui.status.classList.toggle('is-online', state.ready && !!state.team.online);
+    ui.status.classList.toggle('is-online', state.teamKnown && !!state.team.online);
+  }
+
+  function setTeam(team) {
+    state.team = { ...state.team, ...(team || {}) };
+    state.teamKnown = true;
+    renderStatus();
   }
 
   let flashTimer = null;
@@ -234,6 +282,7 @@
 
   function renderComposerState() {
     const usable = state.ready && !state.fatal;
+    ui.composer.hidden = state.identifying;
     ui.input.disabled = !usable;
     ui.attach.hidden = !state.features.attachments;
     ui.attach.disabled = !usable;
@@ -405,6 +454,7 @@
 
   function setOpen(open) {
     state.open = open;
+    if (open && state.identifying && window.matchMedia('(pointer: fine)').matches) ui.leadName.focus();
     if (!open || !state.ready) return;
     scrollToBottom();
     markRead();
@@ -423,14 +473,13 @@
     state.ready = true;
     state.connected = true;
     state.contact = data.contact || null;
-    state.team = { ...state.team, ...(data.team || {}) };
+    setTeam(data.team);
     state.features = { attachments: !!data.features?.attachments };
     state.topics = Array.isArray(data.topics) ? data.topics.slice(0, 6).map(String) : [];
     state.hasMore = !!data.hasMore;
     state.lastReadId = Number(data.lastReadId) || 0;
     state.messages = [...serverMessages, ...unsent];
 
-    renderStatus();
     renderBanner();
     renderComposerState();
     renderMessages();
@@ -494,6 +543,69 @@
     if (!token) return onFatal('TOKEN_EXPIRADO');
     transport.setToken(String(token));
   }
+
+  // ---------------------------------------------------------------------------
+  // Identificação do visitante do site
+  // ---------------------------------------------------------------------------
+  function showLeadForm() {
+    state.identifying = true;
+    state.ready = false;
+    state.messages = [];
+    renderMessages();
+    ui.leadText.textContent = state.team.online
+      ? 'Deixe seu contato e sua mensagem. Nossa equipe responde por aqui.'
+      : 'Deixe seu contato e sua mensagem. Nossa equipe responde por aqui assim que voltar.';
+    ui.lead.hidden = false;
+    renderComposerState();
+    if (state.open && window.matchMedia('(pointer: fine)').matches) ui.leadName.focus();
+  }
+
+  function leadError(text, field) {
+    ui.leadError.textContent = text || '';
+    ui.leadError.hidden = !text;
+    if (field) field.focus();
+  }
+
+  /** A chave guardada não vale mais (contato removido): o visitante se identifica de novo. */
+  function forgetVisitor() {
+    config.token = '';
+    post({ type: 'uvoz:visitor', token: null });
+    showLeadForm();
+  }
+
+  ui.lead.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (ui.leadSubmit.disabled) return;
+    const lead = {
+      app: config.app, source: config.page,
+      name: ui.leadName.value.trim(), phone: ui.leadPhone.value.trim(),
+      email: ui.leadEmail.value.trim(), message: ui.leadMessage.value.trim(),
+    };
+    if (lead.name.length < 2) return leadError('Informe seu nome.', ui.leadName);
+    if (lead.phone.replace(/\D/g, '').length < 10) return leadError('Informe um WhatsApp com DDD.', ui.leadPhone);
+    if (lead.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.email)) return leadError('Informe um e-mail válido ou deixe em branco.', ui.leadEmail);
+    if (!lead.message) return leadError('Escreva sua mensagem.', ui.leadMessage);
+
+    leadError('');
+    ui.leadSubmit.disabled = true;
+    ui.leadSubmit.textContent = 'Enviando…';
+    try {
+      const { token } = await visitorApi.create(lead);
+      config.token = token;
+      post({ type: 'uvoz:visitor', token });
+      state.identifying = false;
+      ui.lead.hidden = true;
+      ui.lead.reset();
+      renderComposerState();
+      if (transport) transport.setToken(token); // a conversa chega no "init", já com a primeira mensagem
+      else connect();
+    } catch (err) {
+      leadError(err.message || 'Não foi possível enviar. Tente de novo.');
+    } finally {
+      ui.leadSubmit.disabled = false;
+      ui.leadSubmit.textContent = 'Iniciar conversa';
+    }
+  });
 
   // ---------------------------------------------------------------------------
   // Envio
@@ -597,7 +709,50 @@
   });
 
   ui.close.addEventListener('click', () => post({ type: 'uvoz:close' }));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post({ type: 'uvoz:close' }); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!ui.helpPanel.hidden) closeHelp(); else post({ type: 'uvoz:close' });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Tutoriais: a Central de Ajuda (/ajuda) abre dentro do chat, por cima da conversa.
+  // ---------------------------------------------------------------------------
+  const HELP_PATH = '/ajuda';
+  const isHelpPath = (path) => path === HELP_PATH || path.startsWith(`${HELP_PATH}/`);
+
+  function openHelp(path) {
+    const target = path && isHelpPath(path) ? path : HELP_PATH;
+    let current = null;
+    try { current = ui.helpFrame.contentWindow.location.pathname; } catch { /* ainda sem página */ }
+    if (!ui.helpFrame.getAttribute('src') || (path && current !== target)) ui.helpFrame.src = target;
+    ui.helpPanel.style.top = `${ui.head.offsetHeight}px`;
+    ui.helpPanel.hidden = false;
+    ui.help.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeHelp() {
+    ui.helpPanel.hidden = true;
+    ui.help.setAttribute('aria-expanded', 'false');
+    if (!ui.input.disabled) ui.input.focus();
+  }
+
+  ui.help.addEventListener('click', () => { if (ui.helpPanel.hidden) openHelp(); else closeHelp(); });
+  ui.helpCard.addEventListener('click', () => openHelp());
+  ui.helpBack.addEventListener('click', closeHelp);
+  // "Abrir em nova aba" leva ao tutorial que está na tela.
+  ui.helpOpen.addEventListener('click', () => {
+    try { ui.helpOpen.href = ui.helpFrame.contentWindow.location.pathname; } catch { ui.helpOpen.href = HELP_PATH; }
+  });
+  // Link de tutorial enviado na conversa abre aqui mesmo, sem sair do chat.
+  ui.list.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href]');
+    if (!link || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    let url;
+    try { url = new URL(link.href); } catch { return; }
+    if (url.origin !== location.origin || !isHelpPath(url.pathname)) return;
+    e.preventDefault();
+    openHelp(url.pathname);
+  });
 
   ui.scroll.addEventListener('scroll', () => { if (state.ready && isWatching()) markRead(); }, { passive: true });
   document.addEventListener('visibilitychange', () => { if (state.ready && isWatching()) markRead(); });
@@ -623,9 +778,27 @@
   async function boot(options) {
     booted = true;
     state.open = !!options.open;
-    const config = { app: String(options.app || ''), token: String(options.token || '') };
+    config = {
+      app: String(options.app || ''), token: String(options.token || ''),
+      visitor: !!options.visitor, page: String(options.page || '').slice(0, 500),
+    };
+    if (!config.visitor) return connect();
+
+    // Visitante do site: mostra a equipe e, se ainda não se identificou, o formulário de contato.
     try {
-      if (DEMO) await loadScript('demo-transport.js');
+      if (DEMO) await loadDemo();
+      visitorApi = DEMO ? window.UVozDemoVisitor(DEMO) : httpVisitorApi;
+      setTeam((await visitorApi.info(config.app)).team);
+    } catch {
+      return onFatal('CARREGAMENTO');
+    }
+    if (config.token) connect();
+    else showLeadForm();
+  }
+
+  async function connect() {
+    try {
+      if (DEMO) await loadDemo();
       transport = DEMO ? window.UVozDemoTransport(config, DEMO) : socketTransport(config);
     } catch {
       return onFatal('CARREGAMENTO');
@@ -633,10 +806,10 @@
     transport.on('init', onInit);
     transport.on('message:new', onMessageNew);
     transport.on('typing', onTyping);
-    transport.on('team:updated', (team) => { state.team = { ...state.team, ...team }; renderStatus(); renderWelcome(); });
+    transport.on('team:updated', (team) => { setTeam(team); renderWelcome(); });
     transport.on('status', ({ connected }) => { state.connected = connected; renderBanner(); });
     transport.on('token:expired', requestToken);
-    transport.on('fatal', ({ code }) => onFatal(code));
+    transport.on('fatal', ({ code }) => (config.visitor && code === 'TOKEN_INVALIDO' ? forgetVisitor() : onFatal(code)));
     transport.start();
   }
 

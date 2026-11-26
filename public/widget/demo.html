@@ -22,12 +22,13 @@
     <h1>Widget de suporte</h1>
     <p>Página de teste. Os cenários abaixo usam um servidor simulado: nenhuma mensagem sai deste navegador.
       Para testar com o servidor de verdade, abra <code>?app=ID&amp;token=TOKEN</code> com um token gerado por
-      <code>scripts/support-token.js</code>.</p>
+      <code>scripts/support-token.js</code>, ou <code>?app=site</code> para o chat do site (visitante sem conta).</p>
     <nav aria-label="Cenários">
       <a href="?demo=1">Primeira conversa</a>
       <a href="?demo=conversa">Conversa em andamento</a>
       <a href="?demo=resposta">Resposta com o chat fechado</a>
       <a href="?demo=offline">Fora do horário</a>
+      <a href="?demo=lead">Visitante do site</a>
     </nav>
     <div class="card"></div>
   </main>
@@ -36,12 +37,13 @@
   <script>
     const query = new URLSearchParams(location.search);
     const launcher = query.get('launcher') || 'light';
-    if (query.get('token')) {
-      UVozWidget.boot({ app: query.get('app'), token: query.get('token'), launcher });
+    if (query.get('app')) {
+      // Sem token, o widget entra no modo do site: o visitante se identifica no próprio chat.
+      UVozWidget.boot({ app: query.get('app'), token: query.get('token') || undefined, launcher });
     } else {
       const scenario = query.get('demo') || '1';
       document.querySelector(`a[href="?demo=${scenario}"]`)?.setAttribute('aria-current', 'page');
-      UVozWidget.boot({ app: 'demo', demo: scenario, launcher });
+      UVozWidget.boot({ app: 'demo', demo: scenario, visitor: scenario === 'lead', launcher });
     }
   </script>
 </body>

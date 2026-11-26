@@ -1,0 +1,4033 @@
+{
+ "title": "Integrações com Plataformas Parceiras",
+ "description": "Integre plataformas à Unicopag e automatize operações, rastreio, campanhas, logística e mais com nosso passo a passo.",
+ "updated": "2026-11-25",
+ "source": "https://intercom.help/unicopag/pt-BR/articles/11987500-integracoes-com-plataformas-parceiras",
+ "intro": [
+  {
+   "t": "note",
+   "tone": "warn",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "⚠️ Se alguma das plataformas passar por atualizações ou você encontrar dificuldades, entre em contato com o suporte da Unicopag ou da própria plataforma parceira."
+    }
+   ]
+  }
+ ],
+ "tutorials": [
+  {
+   "slug": "klaviyo",
+   "name": "Klaviyo",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "Você vai precisar de três dados da sua conta Klaviyo: a <b>chave pública da API</b>, uma <b>chave privada da API</b> e o <b>ID da lista</b> que receberá os contatos."
+    },
+    {
+     "t": "p",
+     "html": "1 - Encontre a chave pública na Klaviyo"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Faça login na sua conta em <a href=\"https://www.klaviyo.com/\">klaviyo.com</a>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique no ícone de perfil (ou no menu lateral esquerdo) e escolha <b>Account</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "No menu superior da página <b>Account</b>, clique em <b>Settings</b> e depois em <b>API Keys</b> (ou <b>Chaves API</b>, se o idioma estiver em português)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie a <b>Public API Key</b> (aparece como \"Chave da API Pública\")."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Gere uma chave privada"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Na mesma página, clique em <b>Create API Key</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Dê um nome para a chave (opcional, mas recomendado)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Selecione a permissão total e clique em <b>Create</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie a chave exibida. Ela só é mostrada uma vez, então guarde com segurança."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "3 - Pegue o ID da lista"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Vá até <b>Público (Audience) &gt; Listas e segmentos (Lists &amp; Segments)</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique na lista desejada."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Veja o endereço no navegador: ele tem o formato <code>https://www.klaviyo.com/list/{LIST_ID}/members</code>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "O trecho <code>{LIST_ID}</code> é o ID da lista."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "4 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Automações</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>Klaviyo</b> e clique em <b>Conectar</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha <b>Chave pública da API</b>, <b>Chave privada da API</b> e <b>ID da lista</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "klaviyo-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "kwai",
+   "name": "Kwai",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Copie o ID do pixel no Kwai Ads"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No Kwai Ads, acesse <b>Ativos (Assets) &gt; Eventos web (Web Events)</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie o <b>Pixel ID</b> (é um número)."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "Se ainda não tiver um pixel, crie um antes:"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel do Kwai, clique em \"Access\" e depois em \"Webs\"."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em \"Setup Web\"."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Dê um nome ao pixel."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em \"Manual Install Pixel Code\"."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Conclua e copie o ID do pixel criado."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Cadastre o pixel na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Pixels</b> e selecione <b>Kwai</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Novo pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-pixels.webp",
+        "w": 1760,
+        "h": 758,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha o <b>Título do pixel</b> e o <b>ID do Pixel</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: para enviar os eventos também pelo servidor, preencha o <b>Access Token da Events API</b>. Ele é gerado nas configurações do pixel no Kwai Ads; se a opção não aparecer, peça ao seu gerente de conta. Deixe em branco para enviar só pelo navegador."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Ambientes de Ativação</b>, escolha onde o pixel dispara: <b>Ao visitar o checkout</b> e/ou <b>Ao realizar uma compra</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Condições para ativação</b>, escolha quais vendas são enviadas: <b>Pix gerado como pago</b>, <b>Boleto gerado como pago</b> e/ou <b>Pagamentos aprovados</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: em <b>Produtos acionadores</b>, limite o pixel a produtos específicos."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Adicionar Pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "kwai-painel.webp",
+        "w": 800,
+        "h": 2016,
+        "show": 400
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "voxuy",
+   "name": "Voxuy",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Pegue os dados na Voxuy"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Faça login na sua conta Voxuy."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Na área de <b>Configurações</b> ou <b>API</b>, gere uma <b>API Key</b> (token) para a integração e copie."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie também a <b>URL de Webhook</b> gerada pela Voxuy e a <b>identificação do plano</b> que será usado."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Automações</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>Voxuy</b> e clique em <b>Conectar</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha <b>URL de Webhook</b>, <b>Token da API</b> e <b>Identificação do Plano na Voxuy</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Condições de disparo</b>, marque os <b>Métodos de pagamento</b> e os <b>Status do pagamento</b> que devem acionar a integração."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "voxuy-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "3 - Teste"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Faça um pedido de teste e confira no painel da Voxuy se a mensagem foi disparada."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ajuste o funil de mensagens conforme necessário."
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "tiny-erp",
+   "name": "Tiny ERP",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "A integração usa o token da API do Tiny."
+    },
+    {
+     "t": "p",
+     "html": "1 - Gere o token no Tiny"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No Tiny, acesse <b>Menu → Início → Extensões do Tiny</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Na seção <b>Vendas</b>, adicione a extensão <b>Token API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Instalar</b> e confirme a instalação."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Acesse <b>Menu → Configurações → aba E-commerce</b> e clique em <b>Token API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie o valor do campo <b>Token</b>. É ele que identifica sua conta nas integrações."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Plataformas</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Na seção <b>ERP</b>, localize <b>Tiny ERP</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-plataformas.webp",
+        "w": 1760,
+        "h": 820,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o token no campo <b>Token da API</b>, deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "tiny-erp-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "tiktok-ads",
+   "name": "TikTok Ads",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Copie o ID do pixel no TikTok"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Faça login no TikTok Ads Manager e clique em <b>Ferramentas</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Eventos</b> para abrir o Gerenciador de Eventos."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Web Events</b> e copie o <b>Pixel ID</b> (Pixel Code) do seu pixel."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Cadastre o pixel na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Pixels</b> e selecione <b>TikTok Ads</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Novo pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-pixels.webp",
+        "w": 1760,
+        "h": 758,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha o <b>Título do pixel</b> e o <b>ID do Pixel</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: para enviar os eventos também pelo servidor, preencha o <b>Access Token da Events API</b> (no TikTok: Gerenciador de eventos &gt; seu pixel &gt; Configurações &gt; Gerar token de acesso). Deixe em branco para enviar só pelo navegador."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: o <b>Código de evento de teste</b> vem de Gerenciador de eventos &gt; Testar eventos. Apague depois de testar: com o código preenchido, as compras não entram nos relatórios."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Ambientes de Ativação</b>, escolha onde o pixel dispara: <b>Ao visitar o checkout</b> e/ou <b>Ao realizar uma compra</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Condições para ativação</b>, escolha quais vendas são enviadas: <b>Pix gerado como pago</b>, <b>Boleto gerado como pago</b> e/ou <b>Pagamentos aprovados</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: em <b>Produtos acionadores</b>, limite o pixel a produtos específicos."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Adicionar Pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "tiktok-ads-painel.webp",
+        "w": 800,
+        "h": 2104,
+        "show": 400
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "nemu",
+   "name": "Nemu",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Gere o token de API na plataforma Nemu e copie."
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações</b> e abra a aba <b>Integrações</b> (a última, de rastreamento e atribuição de vendas)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>Nemu</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-integrations.webp",
+        "w": 1760,
+        "h": 433,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o token no campo <b>Token da API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Condições de disparo</b>, marque os <b>Métodos de pagamento</b> e os <b>Status do pagamento</b> que devem acionar a integração."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "nemu-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "utmify",
+   "name": "Utmify",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Gere a chave de API na Utmify"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Entre na sua conta Utmify e abra a área de integrações/API do painel."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Gere (ou copie) a <b>chave privada da API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Se for usar o script da Utmify no checkout, copie também o <b>ID do script (Pixel ID)</b>."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações</b> e abra a aba <b>Integrações</b> (a última, de rastreamento e atribuição de vendas)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>Utmify</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-integrations.webp",
+        "w": 1760,
+        "h": 433,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole a chave no campo <b>Chave da API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Valor enviado para o pixel</b>, escolha qual valor do pedido a Utmify recebe:"
+       },
+       {
+        "t": "ul",
+        "items": [
+         [
+          {
+           "t": "p",
+           "html": "<b>Valor total do pedido</b>: pedido de R$ 200 com R$ 20 de desconto e R$ 10 de frete envia R$ 190."
+          }
+         ],
+         [
+          {
+           "t": "p",
+           "html": "<b>Valor dos produtos + frete</b>: produto de R$ 200 com frete de R$ 10 envia R$ 210, mesmo com desconto."
+          }
+         ],
+         [
+          {
+           "t": "p",
+           "html": "<b>Valor dos produtos</b>: produto de R$ 200 envia R$ 200, mesmo com desconto ou frete."
+          }
+         ]
+        ]
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: preencha o <b>ID do script (Pixel ID)</b> para carregar o script da Utmify no checkout."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "utmify-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "pushcut",
+   "name": "Pushcut",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "O Pushcut envia notificações personalizadas para iOS e macOS. A Unicopag aciona uma notificação sua por uma URL."
+    },
+    {
+     "t": "p",
+     "html": "1 - Crie a notificação no Pushcut"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Acesse <a href=\"https://www.pushcut.io/\">pushcut.io</a>, crie sua conta e baixe o aplicativo para iOS."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "No painel do Pushcut, vá até <b>Automations</b> e crie uma nova <b>Notification</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Configure um <b>Webhook Trigger</b>: é ele que a Unicopag vai acionar."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie a URL exclusiva que o Pushcut gera para essa notificação."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Notificações</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>Pushcut</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-notifications.webp",
+        "w": 1760,
+        "h": 433,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole a URL no campo <b>URL do Pushcut</b>. Ela contém sua chave de acesso, por isso aparece mascarada."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "pushcut-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "tracklead",
+   "name": "TrackLead",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "A integração pede apenas o <b>ID da Tracklead</b>, que identifica sua conta."
+    },
+    {
+     "t": "p",
+     "html": "1 - Encontre o seu ID"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Acesse sua conta na TrackLead e procure a área de integração, API ou scripts. O ID pode aparecer como \"ID da Conta\", \"ID do Cliente\" ou \"Tracking ID\"."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "Se a TrackLead já está instalada no seu site, você também acha o ID no script dela:"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Abra o código-fonte do site ou o seu Gerenciador de Tags (GTM)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Procure o script da TrackLead. Ele tem um formato parecido com este:"
+       },
+       {
+        "t": "code",
+        "text": "<script src=\"https://tracklead.example.com/script.js?id=12345\"></script>"
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "Nesse exemplo, <b>12345</b> é o ID da TrackLead."
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações</b> e abra a aba <b>Integrações</b> (a última, de rastreamento e atribuição de vendas)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>Tracklead</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-integrations.webp",
+        "w": 1760,
+        "h": 433,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o ID no campo <b>ID da Tracklead</b>, deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "tracklead-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "data-frete",
+   "name": "Data Frete",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Pegue os dados na Data Frete"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Faça login na sua conta da Data Frete."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Vá até a área de <b>Configurações</b> ou <b>Integrações</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Na seção de API, gere o <b>token</b> e copie."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Anote também o <b>slug da conta</b> (o identificador da sua conta na Data Frete)."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Logística</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>DataFrete</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-logistics.webp",
+        "w": 1760,
+        "h": 795,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha <b>Slug da conta</b> e <b>Token da API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Pacote padrão</b>, informe altura, largura, comprimento (cm) e peso (kg). Essas medidas são usadas quando o produto não tem dimensões cadastradas."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "data-frete-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "appmax",
+   "name": "AppMax",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "Antes de começar, siga o passo a passo da própria AppMax para integração por API: <a href=\"https://help.appmax.com.br/pt-br/central-de-ajuda/integrando-por-api\">help.appmax.com.br/pt-br/central-de-ajuda/integrando-por-api</a>"
+    },
+    {
+     "t": "p",
+     "html": "1 - Peça o token de integração à AppMax"
+    },
+    {
+     "t": "p",
+     "html": "É necessário entrar em contato com a AppMax para solicitar o token."
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse o menu <b>Gateways</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Outros gateways disponíveis</b>, localize <b>App Max</b> e clique em <b>Conectar</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o token no campo <b>API Secret</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Escolha o <b>Parcelamento sem juros</b>. Acima dele, os juros das parcelas ficam por conta do cliente."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ligue <b>Usar nas retentativas</b> se quiser usar este gateway como alternativa quando um pagamento for recusado em outro."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ligue <b>Gateway ativo</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Confirmação</b>, digite sua senha de acesso ao painel e clique em <b>Salvar</b>."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "O gateway usado em cada forma de pagamento é definido em <b>Checkout &gt; Métodos de pagamento</b>."
+      }
+     ]
+    },
+    {
+     "t": "img",
+     "src": "appmax-painel.webp",
+     "w": 920,
+     "h": 2200,
+     "show": 440
+    },
+    {
+     "t": "p",
+     "html": "3 - Cadastre o webhook na AppMax"
+    },
+    {
+     "t": "p",
+     "html": "Sem o webhook a Unicopag não recebe as atualizações de status dos pedidos."
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No formulário do gateway, copie a <b>URL do webhook</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cadastre essa URL em <a href=\"https://admin.appmax.com.br/v2/apphook\">admin.appmax.com.br/v2/apphook</a>."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "danger",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Ao criar o webhook na AppMax, selecione <b>TODOS OS EVENTOS</b> e adicione a <b>Regra por valor total do pedido</b>, com a condição <b>maior que R$ 0,01</b>."
+      }
+     ]
+    },
+    {
+     "t": "img",
+     "src": "appmax-2.jpg",
+     "w": 1193,
+     "h": 579
+    }
+   ]
+  },
+  {
+   "slug": "mercado-pago",
+   "name": "Mercado Pago",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Entre na sua conta do Mercado Pago"
+    },
+    {
+     "t": "p",
+     "html": "Acesse <a href=\"http://mercadopago.com.br\">mercadopago.com.br</a> e faça login com seu e-mail e senha."
+    },
+    {
+     "t": "p",
+     "html": "2 - Abra o painel de desenvolvedor"
+    },
+    {
+     "t": "p",
+     "html": "No menu principal, procure por <b>\"Suas integrações\"</b> ou <b>\"Credenciais\"</b>. Se já tiver uma integração (aplicação), clique nela; se não tiver, crie uma no próximo passo."
+    },
+    {
+     "t": "img",
+     "src": "mercado-pago-1.png",
+     "w": 734,
+     "h": 331
+    },
+    {
+     "t": "p",
+     "html": "3 - Crie uma aplicação (se ainda não tiver)"
+    },
+    {
+     "t": "p",
+     "html": "Clique em <b>\"Criar aplicação\"</b> e preencha as informações pedidas (nome do app, tipo de solução etc.)."
+    },
+    {
+     "t": "img",
+     "src": "mercado-pago-2.png",
+     "w": 1023,
+     "h": 698
+    },
+    {
+     "t": "p",
+     "html": "4 - Copie as credenciais de produção"
+    },
+    {
+     "t": "p",
+     "html": "Dentro da aplicação, abra <b>Credenciais de produção</b> e copie:"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "<b>Public Key</b> (chave pública)"
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "<b>Access Token</b> (token de acesso)"
+       },
+       {
+        "t": "img",
+        "src": "mercado-pago-3.png",
+        "w": 725,
+        "h": 467
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "5 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse o menu <b>Gateways</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Outros gateways disponíveis</b>, localize <b>Mercado Pago</b> e clique em <b>Conectar</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole a <b>Public Key</b> em <b>API Key</b> e o <b>Access Token</b> em <b>API Secret</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: ligue a <b>Autenticação 3DS no cartão de crédito</b>. O 3DS 2.0 também precisa estar habilitado na sua conta Mercado Pago."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Escolha o <b>Parcelamento sem juros</b>. Acima dele, os juros das parcelas ficam por conta do cliente."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ligue <b>Usar nas retentativas</b> se quiser usar este gateway como alternativa quando um pagamento for recusado em outro."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ligue <b>Gateway ativo</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Confirmação</b>, digite sua senha de acesso ao painel e clique em <b>Salvar</b>."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "O gateway usado em cada forma de pagamento é definido em <b>Checkout &gt; Métodos de pagamento</b>."
+      }
+     ]
+    },
+    {
+     "t": "img",
+     "src": "mercado-pago-painel.webp",
+     "w": 920,
+     "h": 2200,
+     "show": 440
+    }
+   ]
+  },
+  {
+   "slug": "paybeehive",
+   "name": "PayBeehive",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Copie as chaves na Beehive"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Acesse a plataforma da Beehive."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "No menu lateral, clique em <b>Configurações &gt; Credenciais de API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie a chave secreta e a chave pública."
+       },
+       {
+        "t": "img",
+        "src": "paybeehive-1.png",
+        "w": 1541,
+        "h": 855
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse o menu <b>Gateways</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Outros gateways disponíveis</b>, localize <b>PayBeehive</b> e clique em <b>Conectar</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha <b>API Key</b> e <b>API Secret</b> com as chaves copiadas."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Escolha o <b>Parcelamento sem juros</b>. Acima dele, os juros das parcelas ficam por conta do cliente."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ligue <b>Usar nas retentativas</b> se quiser usar este gateway como alternativa quando um pagamento for recusado em outro."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ligue <b>Gateway ativo</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Confirmação</b>, digite sua senha de acesso ao painel e clique em <b>Salvar</b>."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "O gateway usado em cada forma de pagamento é definido em <b>Checkout &gt; Métodos de pagamento</b>."
+      }
+     ]
+    },
+    {
+     "t": "img",
+     "src": "paybeehive-painel.webp",
+     "w": 920,
+     "h": 2200,
+     "show": 440
+    }
+   ]
+  },
+  {
+   "slug": "super-frete",
+   "name": "Super Frete",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Gere o token na SuperFrete"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Se a sua loja é Shopify, instale antes o app <b>SuperFrete</b> pela App Store da Shopify."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "No painel da SuperFrete, vá em <b>Integrações &gt; API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie o token exibido."
+       },
+       {
+        "t": "img",
+        "src": "super-frete-1.png",
+        "w": 696,
+        "h": 536
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Logística</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>SuperFrete</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-logistics.webp",
+        "w": 1760,
+        "h": 795,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o token no campo <b>Token da API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Pacote padrão</b>, informe altura, largura, comprimento (cm) e peso (kg). Essas medidas são usadas quando o produto não tem dimensões cadastradas."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Opções de envio</b>, habilite os serviços que deseja oferecer e escolha a ordenação e a exibição das opções de frete no checkout."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: ligue <b>Gerar etiquetas automaticamente</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "super-frete-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Os dados da empresa (como CNPJ) e o endereço de origem dos envios são cadastrados em <b>Checkout &gt; Dados da loja</b>."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "aprovei",
+   "name": "Aprovei",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Copie as chaves na Aprovei"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Aprovei, clique em <b>Integrações</b> no menu lateral esquerdo."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize sua <b>Chave Privada</b> e clique em <b>Revelar Chave</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie a <b>Chave Pública</b> (API Key) e a <b>Chave Privada</b> (API Secret)."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse o menu <b>Gateways</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Outros gateways disponíveis</b>, localize <b>Aprovei</b> e clique em <b>Conectar</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole a Chave Pública em <b>API Key</b> e a Chave Privada em <b>API Secret</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Escolha o <b>Parcelamento sem juros</b>. Acima dele, os juros das parcelas ficam por conta do cliente."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ligue <b>Usar nas retentativas</b> se quiser usar este gateway como alternativa quando um pagamento for recusado em outro."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ligue <b>Gateway ativo</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Confirmação</b>, digite sua senha de acesso ao painel e clique em <b>Salvar</b>."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "O gateway usado em cada forma de pagamento é definido em <b>Checkout &gt; Métodos de pagamento</b>."
+      }
+     ]
+    },
+    {
+     "t": "img",
+     "src": "aprovei-painel.webp",
+     "w": 920,
+     "h": 2200,
+     "show": 440
+    }
+   ]
+  },
+  {
+   "slug": "google-analytics-ga",
+   "name": "Google Analytics (GA)",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Copie o ID no Google Analytics"
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Para ver o ID da tag é necessário ter a função de editor (ou superior) na propriedade do Google Analytics."
+      }
+     ]
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No Google Analytics (GA4), abra <b>Administrador</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Coleta e modificação de dados</b>, clique em <b>Fluxos de dados</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique no nome do seu fluxo da Web."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie o <b>ID da métrica</b>, que começa com \"G-\"."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Cadastre o pixel na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Pixels</b> e selecione <b>Google Analytics</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Novo pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-pixels.webp",
+        "w": 1760,
+        "h": 758,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha o <b>Título do pixel</b> e o <b>ID do Pixel Google Analytics</b> (formato <code>G-XXXXXXXXXX</code>)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: para enviar os eventos também pelo servidor, preencha a <b>Chave secreta da API do Measurement Protocol</b> (no GA: Administrador &gt; Fluxos de dados &gt; seu fluxo da Web &gt; Chaves secretas da API do Measurement Protocol &gt; Criar). Deixe em branco para enviar só pelo navegador."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Ambientes de Ativação</b>, escolha onde o pixel dispara: <b>Ao visitar o checkout</b> e/ou <b>Ao realizar uma compra</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Condições para ativação</b>, escolha quais vendas são enviadas: <b>Pix gerado como pago</b>, <b>Boleto gerado como pago</b> e/ou <b>Pagamentos aprovados</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: em <b>Produtos acionadores</b>, limite o pixel a produtos específicos."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Adicionar Pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "google-analytics-ga-painel.webp",
+        "w": 800,
+        "h": 2016,
+        "show": 400
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "active-campaign",
+   "name": "Active Campaign",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "Você vai precisar de três dados da ActiveCampaign: o <b>token da API</b>, a <b>URL de conversão</b> e o <b>ID da lista</b>."
+    },
+    {
+     "t": "p",
+     "html": "1 - Pegue o token da API"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Acesse sua conta na ActiveCampaign."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Configurações</b> (ícone de engrenagem) no menu esquerdo."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Desenvolvedor</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie a chave de API: ela é o seu token."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Ative o rastreamento e defina a URL de conversão"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Na ActiveCampaign, vá em <b>Configurações &gt; Rastreamento</b> e ative o <b>Rastreamento de Site</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie o código de rastreamento fornecido e cole no cabeçalho do seu site."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Escolha a URL da página de conversão (por exemplo, a página de \"Obrigado\") e confirme que o código de rastreamento está ativo nela."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "3 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Automações</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>ActiveCampaign</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-automations.webp",
+        "w": 1760,
+        "h": 1673,
+        "show": 640
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha <b>Token da API</b>, <b>URL de conversão</b> e <b>ID da Lista</b> (a lista que receberá os contatos)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: ajuste as tags aplicadas aos contatos no cadastro, no pedido e no pagamento aprovado. Os campos já mostram sugestões, como <code>pedido_pix</code> e <code>pagamento_cartao</code>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "active-campaign-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "taboola",
+   "name": "Taboola",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Copie o ID da conta no Taboola"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Abra a página inicial do Taboola."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique na aba <b>Tracking</b> no menu de navegação superior."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Vá até a seção <b>Google Tag Manager</b>: o ID da conta aparece ali."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Cadastre o pixel na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Pixels</b> e selecione <b>Taboola</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Novo pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-pixels.webp",
+        "w": 1760,
+        "h": 758,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha o <b>Título do pixel</b> e o <b>ID da Conta Taboola</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Ambientes de Ativação</b>, escolha onde o pixel dispara: <b>Ao visitar o checkout</b> e/ou <b>Ao realizar uma compra</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Condições para ativação</b>, escolha quais vendas são enviadas: <b>Pix gerado como pago</b>, <b>Boleto gerado como pago</b> e/ou <b>Pagamentos aprovados</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: em <b>Produtos acionadores</b>, limite o pixel a produtos específicos."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Adicionar Pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "taboola-painel.webp",
+        "w": 800,
+        "h": 1492,
+        "show": 400
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "webhook",
+   "name": "Webhook",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "Com um webhook, a Unicopag avisa o seu sistema em tempo real sobre eventos de pagamento, enviando um POST para uma URL sua."
+    },
+    {
+     "t": "p",
+     "html": "1 - Tenha em mãos a URL que vai receber os avisos"
+    },
+    {
+     "t": "p",
+     "html": "É o endereço do seu sistema (ou da ferramenta que você usa) preparado para receber requisições POST, por exemplo <code>https://seu-sistema.com/webhooks</code>."
+    },
+    {
+     "t": "p",
+     "html": "2 - Cadastre o webhook na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Webhooks</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Cadastrar webhook</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>URL que receberá o POST</b>, cole o endereço."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Versão do webhook</b>, mantenha o <b>Novo modelo (v2)</b>, com payload completo e eventos selecionáveis."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Eventos assinados</b>, marque os eventos que a URL deve receber: transação criada, aguardando pagamento, pagamento aprovado, recusado, cancelado, estornado, pré-chargeback, chargeback, MED Pix, rastreio atualizado e checkout abandonado."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Se nenhum evento for marcado, a URL recebe os eventos padrão <code>transaction.created</code>, <code>transaction.updated</code> e <code>checkout.abandoned</code>."
+      }
+     ]
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Opcional: em <b>Condições de disparo</b>, filtre por <b>Métodos de pagamento</b> e <b>Status do pagamento</b>. Sem seleção, não há filtro."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "webhook-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "sms-funnel",
+   "name": "SMS Funnel",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Pegue a URL de postback no SMS Funnel"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Faça login na sua conta SMS Funnel."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Acesse a seção <b>Configurações</b> ou <b>Integrações</b> do painel."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Crie (ou edite) um postback e defina os parâmetros."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie a <b>URL de postback</b> gerada."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Automações</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>SMS Funnel</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-automations.webp",
+        "w": 1760,
+        "h": 1673,
+        "show": 640
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o endereço no campo <b>URL de postback</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Condições de disparo</b>, marque os <b>Métodos de pagamento</b> e os <b>Status do pagamento</b> que devem acionar a integração."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "sms-funnel-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "3 - Teste"
+    },
+    {
+     "t": "p",
+     "html": "Faça um pedido de teste e confira no SMS Funnel se os dados chegaram."
+    }
+   ]
+  },
+  {
+   "slug": "google-ads",
+   "name": "Google Ads",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Encontre o ID e o rótulo de conversão no Google Ads"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Faça login na sua conta do Google Ads."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique no ícone de ferramentas no canto superior direito."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Selecione <b>Gerenciador de públicos-alvo</b> na seção <b>Biblioteca compartilhada</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Suas fontes de dados</b>, à esquerda."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "No card \"Tag do Google Ads\", clique em <b>Configurar tag</b>. Se já tiver uma tag configurada, clique nos três pontos do card e escolha <b>Editar origem</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Criar e Continuar</b> e role a página até ver o seu ID."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Concluído</b>."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "Os dois valores ficam no campo <code>send_to</code> da tag da ação de conversão, no formato <code>AW-XXXXXXXXX/rótulo</code>: a parte antes da barra é o <b>ID</b> e a parte depois da barra é o <b>rótulo (label) de conversão</b>."
+    },
+    {
+     "t": "p",
+     "html": "2 - Cadastre o pixel na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Pixels</b> e selecione <b>Google Ads</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Novo pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-pixels.webp",
+        "w": 1760,
+        "h": 758,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha o <b>Título do pixel</b>, o <b>ID do Pixel Google Ads</b> (formato <code>AW-XXXXXXXXX</code>) e a <b>Label de Conversão</b>."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Confira no Google Ads se a Label de Conversão está correta antes de salvar."
+      }
+     ]
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Adicionar Pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "google-ads-painel.webp",
+        "w": 800,
+        "h": 1148,
+        "show": 400
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "google-tag-manager-gtm",
+   "name": "Google Tag Manager (GTM)",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Copie o ID no GTM"
+    },
+    {
+     "t": "p",
+     "html": "Acesse sua conta no Google Tag Manager e copie o <b>ID da Tag GTM</b> (formato <code>GTM-XXXXXXX</code>), como na imagem:"
+    },
+    {
+     "t": "img",
+     "src": "google-tag-manager-gtm-1.png",
+     "w": 1024,
+     "h": 279
+    },
+    {
+     "t": "p",
+     "html": "2 - Crie e publique uma tag (caso não tenha)"
+    },
+    {
+     "t": "p",
+     "html": "Depois de criar sua tag, clique em <b>Enviar</b> no canto superior direito, preencha os dados e clique em continuar."
+    },
+    {
+     "t": "img",
+     "src": "google-tag-manager-gtm-2.png",
+     "w": 1024,
+     "h": 401
+    },
+    {
+     "t": "p",
+     "html": "3 - Cadastre o pixel na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Pixels</b> e selecione <b>Google Tag Manager</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Novo pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-pixels.webp",
+        "w": 1760,
+        "h": 758,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha o <b>Título do pixel</b> e o <b>ID da Tag GTM</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: ligue <b>Disparar Purchase ao confirmar o pagamento</b> para enviar o evento de compra."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Ambientes de Ativação</b>, escolha onde o pixel dispara: <b>Ao visitar o checkout</b> e/ou <b>Ao realizar uma compra</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Condições para ativação</b>, escolha quais vendas são enviadas: <b>Pix gerado como pago</b>, <b>Boleto gerado como pago</b> e/ou <b>Pagamentos aprovados</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: em <b>Produtos acionadores</b>, limite o pixel a produtos específicos."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Adicionar Pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "google-tag-manager-gtm-painel.webp",
+        "w": 800,
+        "h": 1708,
+        "show": 400
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "4 - Faça um teste (opcional)"
+    },
+    {
+     "t": "p",
+     "html": "Você pode criar no GTM uma tag de HTML personalizado com um alerta, só para testar:"
+    },
+    {
+     "t": "code",
+     "text": "<script>alert('Teste GTM')</script>"
+    },
+    {
+     "t": "img",
+     "src": "google-tag-manager-gtm-3.png",
+     "w": 761,
+     "h": 574,
+     "show": 420
+    },
+    {
+     "t": "p",
+     "html": "Abra um produto qualquer da sua loja no nosso checkout e veja se a mensagem aparece na tela. Remova a tag de teste depois."
+    },
+    {
+     "t": "img",
+     "src": "google-tag-manager-gtm-4.png",
+     "w": 348,
+     "h": 151
+    }
+   ]
+  },
+  {
+   "slug": "melhor-envio",
+   "name": "Melhor Envio",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Gere o token no Melhor Envio"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Faça login na sua conta do Melhor Envio."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "No menu, vá em <b>Integrações &gt; Permissões de Acesso</b> e clique em <b>Gerar novo token</b>."
+       },
+       {
+        "t": "img",
+        "src": "melhor-envio-1.png",
+        "w": 1706,
+        "h": 890
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Leia e <b>concorde</b> com as condições e clique em <b>Avançar</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Dê um <b>nome para o token</b>, marque <b>Selecionar todos</b> e clique em <b>Gerar token</b>."
+       },
+       {
+        "t": "img",
+        "src": "melhor-envio-2.png",
+        "w": 912,
+        "h": 710
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie o token exibido. Ele só é mostrado uma vez."
+       },
+       {
+        "t": "img",
+        "src": "melhor-envio-3.png",
+        "w": 874,
+        "h": 650
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Logística</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>Melhor Envio</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-logistics.webp",
+        "w": 1760,
+        "h": 795,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o token no campo <b>Token da API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Dados do remetente</b>, preencha nome, telefone, e-mail e CPF. Eles são usados na emissão das etiquetas."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Pacote padrão</b>, informe altura, largura, comprimento (cm) e peso (kg). Essas medidas são usadas quando o produto não tem dimensões cadastradas."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Opções de envio</b>, habilite os serviços que deseja oferecer e escolha a ordenação e a exibição das opções de frete no checkout."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: ligue <b>Gerar etiquetas automaticamente</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "melhor-envio-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Os dados da empresa (como CNPJ) e o endereço de origem dos envios são cadastrados em <b>Checkout &gt; Dados da loja</b>."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "facebook-ads-meta-ads",
+   "name": "Facebook Ads (Meta Ads)",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Copie o ID do pixel na Meta"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No Gerenciador de Negócios da Meta, abra <b>Configurações do Negócio &gt; Fontes de Dados &gt; Conjuntos de dados</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Selecione o seu pixel: a identificação (ID) aparece nessa tela."
+       },
+       {
+        "t": "img",
+        "src": "facebook-ads-meta-ads-1.png",
+        "w": 1307,
+        "h": 703
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Gere o token da API de Conversões"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Abra o <b>Gerenciador de Eventos</b>, selecione o seu pixel e clique em <b>Configurações</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Role a página até <b>API de Conversões</b> e clique em <b>Gerar token de acesso</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie o token."
+       },
+       {
+        "t": "img",
+        "src": "facebook-ads-meta-ads-2.png",
+        "w": 900,
+        "h": 800
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "3 - Cadastre o pixel na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Pixels</b> e selecione <b>Facebook Ads</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Novo pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-pixels.webp",
+        "w": 1760,
+        "h": 758,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha o <b>Título do pixel</b>, o <b>ID do Pixel</b> e o <b>Token da API de Conversões</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Ambientes de Ativação</b>, escolha onde o pixel dispara: <b>Ao visitar o checkout</b> e/ou <b>Ao realizar uma compra</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Condições para ativação</b>, escolha quais vendas são enviadas: <b>Pix gerado como pago</b>, <b>Boleto gerado como pago</b> e/ou <b>Pagamentos aprovados</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: em <b>Produtos acionadores</b>, limite o pixel a produtos específicos."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Adicionar Pixel</b>."
+       },
+       {
+        "t": "img",
+        "src": "facebook-ads-meta-ads-painel.webp",
+        "w": 800,
+        "h": 2104,
+        "show": 400
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "unicodrop",
+   "name": "UnicoDrop",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Copie a URL na UnicoDrop"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Na sua conta da UnicoDrop, acesse <b>Configurações &gt; Integrações &gt; ÚnicoPag</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie a <b>URL</b>, como mostra a imagem."
+       },
+       {
+        "t": "img",
+        "src": "unicodrop-2.png",
+        "w": 974,
+        "h": 616
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Plataformas</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>Unico Drop</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-plataformas.webp",
+        "w": 1760,
+        "h": 820,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole a URL copiada no campo <b>Token Unico Drop</b> e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "unicodrop-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "pagarme",
+   "name": "Pagarme",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "Você vai precisar do <b>ID da conta</b> e de uma <b>chave de API</b> da Pagarme."
+    },
+    {
+     "t": "p",
+     "html": "1 - Crie a chave de API na Pagarme"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Pagarme, vá em <b>Configurações &gt; Chaves</b> e clique em <b>Criar chave</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Dê o nome que preferir. Em <b>Acesso da Chave</b>, selecione <b>Total</b>, clique em <b>Avançar</b> e selecione a permissão de <b>leitura/escrita</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie a chave criada."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Copie o ID da conta"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Ainda em <b>Configurações &gt; Chaves</b>, abra <b>Dados da API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie o <b>ID da conta</b>."
+       },
+       {
+        "t": "img",
+        "src": "pagarme-1.png",
+        "w": 1279,
+        "h": 692
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "3 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse o menu <b>Gateways</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Outros gateways disponíveis</b>, localize <b>Pagarme</b> e clique em <b>Conectar</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o <b>ID da conta</b> em <b>API Key</b> e a <b>chave de API</b> que você criou em <b>API Secret</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Escolha o <b>Parcelamento sem juros</b>. Acima dele, os juros das parcelas ficam por conta do cliente."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ligue <b>Usar nas retentativas</b> se quiser usar este gateway como alternativa quando um pagamento for recusado em outro."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ligue <b>Gateway ativo</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Confirmação</b>, digite sua senha de acesso ao painel e clique em <b>Salvar</b>."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "O gateway usado em cada forma de pagamento é definido em <b>Checkout &gt; Métodos de pagamento</b>."
+      }
+     ]
+    },
+    {
+     "t": "img",
+     "src": "pagarme-painel.webp",
+     "w": 920,
+     "h": 2200,
+     "show": 440
+    },
+    {
+     "t": "p",
+     "html": "4 - Cadastre o webhook na Pagarme"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Na Pagarme, vá em <b>Configurações &gt; Webhooks &gt; + Criar Webhook</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "No campo de URL, coloque:"
+       },
+       {
+        "t": "code",
+        "text": "https://api.unicopag.com.br/api/api/gateways/webhooks/pagarme"
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "No campo <b>Máximo de tentativas</b>, preencha <b>3</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Logo abaixo, use <b>Marcar todos</b> em cada grupo de eventos da página e salve."
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "woocommerce",
+   "name": "WooCommerce",
+   "blocks": [
+    {
+     "t": "h",
+     "text": "A configuração abaixo vale para usar o checkout nativo do WooCommerce com o gateway Unicopag, ou o checkout e o gateway da Unicopag juntos."
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Se for usar o checkout da Unicopag, configure antes um domínio personalizado no painel, em <b>Checkout &gt; Aparência &gt; Domínio personalizado</b>."
+      }
+     ]
+    },
+    {
+     "t": "p",
+     "html": "1 - Instale o plugin no WordPress"
+    },
+    {
+     "t": "button",
+     "text": "Baixar Plugin WooCommerce + Unicopag",
+     "href": "https://www.mediafire.com/file/ompqwtkk02a2qeo/woocommerce-unicopag-2.0.zip/file"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel administrativo do WordPress, vá em <b>Plugins → Adicionar novo</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Enviar plugin</b>, selecione o arquivo <b>.zip</b> baixado e clique em <b>Instalar agora</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Depois de instalado, clique em <b>Ativar</b>."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Copie o seu token de API da Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, clique em <b>Buscar recursos</b> (Ctrl K), digite <b>Chaves de API</b> e abra o resultado."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie o <b>Token de integração da API</b>."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "3 - Configure o plugin"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No WordPress, acesse <b>WooCommerce → Configurações → Pagamentos</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Encontre a <b>UnicoPag</b>, clique em <b>Gerenciar/Configurar</b>, cole o token no campo <b>Token de API</b> e salve as alterações."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ative os meios de pagamento desejados: Pix, boleto e cartão de crédito."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Configure também o parcelamento (quando aplicável) e o status do pedido após a confirmação do pagamento."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "<b>Para ativar o checkout da Unicopag:</b> em <b>Redirecionar para o checkout da UnicoPag</b>, marque a opção que contém a frase \"Interceptar o botão de finalizar compra no carrinho [...]\" e salve as alterações."
+       },
+       {
+        "t": "img",
+        "src": "woocommerce-1.jpg",
+        "w": 1098,
+        "h": 452
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "4 - Gere as chaves da API REST do WooCommerce"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No WordPress, vá em <b>WooCommerce &gt; Configurações &gt; Avançado &gt; API REST</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Criar uma chave de API</b> (ou <b>Adicionar chave</b>). Você será levado à tela <b>Detalhes principais</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Adicione uma <b>Descrição</b> e selecione o <b>Usuário</b> dono da chave."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em permissões, escolha <b>Read/Write</b> (leitura e escrita)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Gerar chave de API</b>. O WooCommerce cria duas chaves: <b>Consumer key</b> e <b>Consumer secret</b>. Copie as duas, porque o segredo não é exibido de novo."
+       },
+       {
+        "t": "img",
+        "src": "woocommerce-2.jpg",
+        "w": 1220,
+        "h": 867
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "5 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Plataformas</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>WooCommerce</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-plataformas.webp",
+        "w": 1760,
+        "h": 820,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Identificação da loja</b>, informe o endereço da sua loja."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Preencha o <b>ID da loja</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole a <b>Consumer key</b> (começa com <code>ck_</code>) e a <b>Consumer secret</b> (começa com <code>cs_</code>) nos campos de mesmo nome."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "woocommerce-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "shopify",
+   "name": "Shopify",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "O tutorial em vídeo vem primeiro; o passo a passo escrito está logo abaixo."
+    },
+    {
+     "t": "video",
+     "id": "rkPzeG_LHM8"
+    },
+    {
+     "t": "p",
+     "html": "1 - Crie sua conta de Parceiro da Shopify"
+    },
+    {
+     "t": "p",
+     "html": "Acesse <a href=\"https://www.shopify.com/br/parcerias\">shopify.com/br/parcerias</a> e entre com sua conta Shopify. Se ainda não tiver um <b>Shopify Partner</b>, responda assim:"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "<b>Como você quer começar como Parceiro?</b> Criar e configurar uma nova organização Parceira."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "<b>Qual é seu principal foco como Parceiro da Shopify?</b> Criação de Apps."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "<b>Onde sua empresa está localizada?</b> Selecione \"Brasil\" e, na opção abaixo, o seu estado."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "Depois, adicione as informações de contato da empresa e clique em <b>Criar organização Parceira</b>."
+    },
+    {
+     "t": "p",
+     "html": "2 - Crie o app no Dev Dashboard"
+    },
+    {
+     "t": "p",
+     "html": "No painel do Shopify Partners, no menu lateral esquerdo, clique em <b>Distribuição de apps &gt; Todos os apps &gt; Visitar o Dev Dashboard</b>."
+    },
+    {
+     "t": "img",
+     "src": "shopify-1.png",
+     "w": 1197,
+     "h": 536
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No Dev Dashboard, na lateral esquerda, clique em <b>Apps &gt; Criar App &gt; Criar app manualmente</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Dê um nome ao app, por exemplo: Unicopag App."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>URLs</b>, cole o endereço abaixo no campo <b>App URL</b> e desmarque a opção que fica logo depois do campo:"
+       },
+       {
+        "t": "code",
+        "text": "https://app.unicopag.com.br/integrations/shopify"
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Desça a tela até <b>Acesso à API</b>. No campo <b>Escopos</b>, cole EXATAMENTE o texto abaixo:"
+       },
+       {
+        "t": "code",
+        "text": "read_customers,write_customers,read_orders,write_orders,read_products,write_products,read_themes,write_themes"
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Criar App</b> e depois em <b>Lançar</b>."
+       },
+       {
+        "t": "img",
+        "src": "shopify-2.png",
+        "w": 1237,
+        "h": 831
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "3 - Defina a distribuição personalizada"
+    },
+    {
+     "t": "p",
+     "html": "No menu lateral esquerdo, clique em <b>Visão Geral &gt; Distribuição &gt; Select distribution method</b>. Abre uma nova aba do Shopify Partners."
+    },
+    {
+     "t": "img",
+     "src": "shopify-3.png",
+     "w": 1840,
+     "h": 772
+    },
+    {
+     "t": "p",
+     "html": "Selecione <b>Distribuição Personalizada &gt; Selecionar &gt; Selecionar distribuição personalizada</b>."
+    },
+    {
+     "t": "img",
+     "src": "shopify-4.png",
+     "w": 1405,
+     "h": 682
+    },
+    {
+     "t": "p",
+     "html": "Agora informe o domínio da loja. <b>Cuidado:</b> não é o domínio que você comprou em um serviço de hospedagem, e sim o domínio raiz da loja na Shopify, que termina com \".myshopify.com\"."
+    },
+    {
+     "t": "p",
+     "html": "Para encontrá-lo, acesse <a href=\"https://admin.shopify.com/\">admin.shopify.com</a> e vá em <b>Configurações</b> (canto inferior esquerdo) <b>&gt; Domínios</b>. Copie o domínio que termina com \".myshopify.com\" e cole na aba da distribuição."
+    },
+    {
+     "t": "img",
+     "src": "shopify-5.png",
+     "w": 1513,
+     "h": 803
+    },
+    {
+     "t": "p",
+     "html": "Clique em <b>Gerar link</b> e confirme em <b>Gerar link</b>."
+    },
+    {
+     "t": "img",
+     "src": "shopify-6.png",
+     "w": 1134,
+     "h": 637
+    },
+    {
+     "t": "p",
+     "html": "4 - Instale o app na loja"
+    },
+    {
+     "t": "p",
+     "html": "Copie o link de instalação pelo botão <b>Copiar</b>, abra uma nova guia e cole o link. A Shopify pede para você selecionar a loja: escolha a loja para a qual o app foi criado e clique em <b>Instalar</b>."
+    },
+    {
+     "t": "img",
+     "src": "shopify-7.png",
+     "w": 903,
+     "h": 714
+    },
+    {
+     "t": "p",
+     "html": "Em seguida abre uma aba da Unicopag com o título <b>\"Configure as credenciais OAuth\"</b>."
+    },
+    {
+     "t": "note",
+     "tone": "danger",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Se você ainda não estava logado na Unicopag nesse navegador, a aba pede o login e depois abre o seu dashboard em vez da tela de credenciais. Nesse caso, feche o dashboard, copie de novo o link de instalação da distribuição personalizada, cole em uma nova aba e selecione sua loja."
+      }
+     ]
+    },
+    {
+     "t": "p",
+     "html": "5 - Informe as credenciais do app"
+    },
+    {
+     "t": "p",
+     "html": "Volte à aba do Dev Dashboard. Em <b>Credenciais</b>, na lateral direita, estão o <b>ID do cliente</b> e a <b>Chave secreta do cliente</b>."
+    },
+    {
+     "t": "img",
+     "src": "shopify-8.png",
+     "w": 590,
+     "h": 543
+    },
+    {
+     "t": "p",
+     "html": "Na tela <b>\"Configure as credenciais OAuth\"</b>, preencha o <b>Nome da Loja</b>, cole o ID do cliente em <b>Client ID</b> e a chave secreta em <b>Client Secret</b>. Clique em <b>Instalar</b>."
+    },
+    {
+     "t": "img",
+     "src": "shopify-9.png",
+     "w": 860,
+     "h": 677
+    },
+    {
+     "t": "p",
+     "html": "6 - Efetive a integração na Unicopag"
+    },
+    {
+     "t": "p",
+     "html": "O painel da Unicopag abre no menu <b>Integrações</b>. Na aba <b>Plataformas</b>, abra a <b>Shopify</b> e, em <b>Instalação na loja</b>, clique em <b>Sim, efetivar a integração</b>. Pronto!"
+    },
+    {
+     "t": "img",
+     "src": "shopify-painel.webp",
+     "w": 880,
+     "h": 2200,
+     "show": 440
+    },
+    {
+     "t": "note",
+     "tone": "danger",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Se aparecer mensagem de erro na instalação, clique em <b>tentar novamente</b>. Se o erro continuar, abra o painel da Unicopag em uma nova aba, vá em <b>Integrações &gt; Plataformas &gt; Shopify</b> e confira se a <b>Identificação da loja</b> e o <b>Token da API</b> estão preenchidos e corretos. Se estiverem, desça a tela e clique em <b>Sim, efetivar a integração</b>."
+      }
+     ]
+    },
+    {
+     "t": "h",
+     "text": "Como desinstalar outro checkout da Shopify?"
+    },
+    {
+     "t": "p",
+     "html": "Se a loja usava outro checkout, remova o código dele do tema antes de efetivar a integração:"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Acesse o <b>painel administrativo</b> da Shopify."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Vá em <b>Loja Virtual &gt; Temas &gt; Ações &gt; Editar código</b>."
+       },
+       {
+        "t": "img",
+        "src": "shopify-11.png",
+        "w": 1024,
+        "h": 482
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Na barra lateral esquerda, abra <b>Layouts &gt; theme.liquid</b> e desça até as últimas linhas do código."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Exclua os trechos do checkout antigo. Exemplo (Yampi):"
+       },
+       {
+        "t": "code",
+        "text": "<!-- Não remova. Checkout Yampi. -->\n{%capture yampi_snippet_content %}{% include 'YampiSnippet' %} %endcapture%} {%unless yampi_snippet_content contains 'Liquid error' %} {%include 'YampiSnippet' %} {%endunless%}\n<!-- Não remova. Checkout Yampi. -->"
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "Os checkouts costumam usar o texto padrão \"<b>Não remova / Don't Remove</b>\". Se for outro checkout, procure por essas palavras com <b>CTRL + F</b> e remova o trecho."
+    },
+    {
+     "t": "p",
+     "html": "Pronto! Feito isso, tente novamente efetivar a integração com a Unicopag."
+    }
+   ]
+  },
+  {
+   "slug": "reportana",
+   "name": "Reportana",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Gere as chaves de API na Reportana"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Na sua conta da Reportana, vá em <b>Configurações</b> (menu lateral) <b>→ Chaves de API</b>, ou acesse direto: <a href=\"https://app.reportana.com/#/settings/api-keys\">Configurações — Chaves de API</a>."
+       },
+       {
+        "t": "img",
+        "src": "reportana-1.png",
+        "w": 1514,
+        "h": 541
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>+ Criar</b>, dê um nome à chave e clique em <b>Criar</b>."
+       },
+       {
+        "t": "img",
+        "src": "reportana-2.webp",
+        "w": 630,
+        "h": 186,
+        "show": 420
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie o <b>Client ID</b> e o <b>Client Secret</b>."
+       },
+       {
+        "t": "img",
+        "src": "reportana-3.webp",
+        "w": 909,
+        "h": 315,
+        "show": 600
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Automações</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>Reportana</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-automations.webp",
+        "w": 1760,
+        "h": 1673,
+        "show": 640
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o <b>Client ID</b> e o <b>Client Secret</b> nos campos de mesmo nome."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Condições de disparo</b>, marque os <b>Métodos de pagamento</b> e os <b>Status do pagamento</b> que devem acionar a integração."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "reportana-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "memberkit",
+   "name": "MemberKit",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "Com a integração entre <b>Unicopag</b> e <b>MemberKit</b>, seus alunos são matriculados automaticamente nas salas de aula após a confirmação do pagamento."
+    },
+    {
+     "t": "p",
+     "html": "1 - Gere o token da API na MemberKit"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Acesse sua conta na <b>MemberKit</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "No menu lateral, clique em <b>Configurações → Integrações → API / Chaves de acesso</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Gerar Token</b> (se ainda não tiver um ativo)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Copie o <b>Token da API</b> exibido."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Guarde esse token em local seguro: ele será usado na configuração da Unicopag."
+      }
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Localize o ID da sala de aula"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da <b>MemberKit</b>, vá até <b>Produtos → Salas de Aula</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique na sala que deseja integrar."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Veja o endereço no navegador. Ele tem este formato: <code>https://app.memberkit.com/classrooms/12345</code>"
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "Nesse exemplo, o <b>ID da sala</b> é <b>12345</b>."
+    },
+    {
+     "t": "p",
+     "html": "3 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Automações</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>MemberKit</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-automations.webp",
+        "w": 1760,
+        "h": 1673,
+        "show": 640
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o token no campo <b>Token da API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>ID das salas de aula</b>, informe o número identificado no passo 2. Para mais de uma sala, separe os IDs por vírgula."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "memberkit-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "4 - Teste a integração"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Crie um <b>checkout de teste</b> na Unicopag vinculado a essa sala."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Faça uma compra de teste (Pix, boleto ou cartão)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Após a aprovação, o aluno deve ser matriculado automaticamente na sala escolhida."
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "Pronto! A partir de agora, sempre que uma venda for confirmada pela Unicopag, o aluno será matriculado automaticamente na MemberKit."
+    }
+   ]
+  },
+  {
+   "slug": "frenet",
+   "name": "Frenet",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Copie o token na Frenet"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Acesse o Painel do Cliente da Frenet com seu login e senha."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique no ícone de usuário, no canto superior direito, e escolha <b>\"Dados Cadastrais\"</b> (ou perfil)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Procure a seção <b>\"Chaves de Acesso\"</b> (ou \"Token de Integração\") e copie o <b>Token</b>."
+       },
+       {
+        "t": "img",
+        "src": "frenet-2.png",
+        "w": 761,
+        "h": 618,
+        "show": 420
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Logística</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>Frenet</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-logistics.webp",
+        "w": 1760,
+        "h": 795,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o token no campo <b>Token da API</b>. Os serviços de frete disponíveis são carregados automaticamente a partir dele."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Pacote padrão</b>, informe altura, largura, comprimento (cm) e peso (kg). Essas medidas são usadas quando o produto não tem dimensões cadastradas."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Opções de envio disponíveis</b>, marque os serviços que deseja oferecer e, se quiser, dê um nome personalizado a cada um."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Ajuste a <b>Exibição no checkout</b> (ordenação por preço e quais opções de frete aparecem)."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "frenet-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Os dados da empresa (como CNPJ) e o endereço de origem dos envios são cadastrados em <b>Checkout &gt; Dados da loja</b>."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "envio-ecom",
+   "name": "Envio Ecom",
+   "blocks": [
+    {
+     "t": "p",
+     "html": "1 - Gere o token na Envio Ecom"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Faça login na sua conta <a href=\"https://envioecom.com.br/login\">Envio Ecom</a>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Acesse o menu <b>Integrar Plataforma / Minha Integração</b>."
+       },
+       {
+        "t": "img",
+        "src": "envio-ecom-1.png",
+        "w": 1842,
+        "h": 772
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Clique em <b>Gerar Token e Ativar Integração</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Desça a tela até <b>Credenciais da API</b> e copie o <b>X-Partner-Token</b>."
+       },
+       {
+        "t": "img",
+        "src": "envio-ecom-2.png",
+        "w": 1501,
+        "h": 867
+       }
+      ]
+     ]
+    },
+    {
+     "t": "p",
+     "html": "2 - Conecte na Unicopag"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "No painel da Unicopag, acesse <b>Integrações &gt; Logística</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Localize <b>EnvioEcom</b> e clique em <b>Conectar</b>."
+       },
+       {
+        "t": "img",
+        "src": "painel-logistics.webp",
+        "w": 1760,
+        "h": 795,
+        "show": 700
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Cole o token no campo <b>Token da API</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Remetente</b>, preencha nome, telefone, CPF e e-mail de quem envia os pedidos."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Pacote padrão</b>, informe altura, largura, comprimento (cm) e peso (kg). Essas medidas são usadas quando o produto não tem dimensões cadastradas."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Em <b>Opções de envio</b>, habilite os serviços que deseja oferecer e escolha a ordenação e a exibição das opções de frete no checkout."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Opcional: ligue <b>Gerar etiquetas automaticamente</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Deixe <b>Integração ativa</b> ligada e clique em <b>Salvar</b>."
+       },
+       {
+        "t": "img",
+        "src": "envio-ecom-painel.webp",
+        "w": 880,
+        "h": 2200,
+        "show": 440
+       }
+      ]
+     ]
+    },
+    {
+     "t": "note",
+     "tone": "warn",
+     "blocks": [
+      {
+       "t": "p",
+       "html": "Os dados da empresa (como CNPJ) e o endereço de origem dos envios são cadastrados em <b>Checkout &gt; Dados da loja</b>."
+      }
+     ]
+    },
+    {
+     "t": "p",
+     "html": "3 - Importe e complete os produtos na Envio Ecom"
+    },
+    {
+     "t": "ul",
+     "items": [
+      [
+       {
+        "t": "p",
+        "html": "Volte à Envio Ecom e vá em <b>Mapear Produtos &gt; Importar Produtos</b>."
+       },
+       {
+        "t": "img",
+        "src": "envio-ecom-4.png",
+        "w": 976,
+        "h": 683,
+        "show": 620
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Depois de importar, preencha as dimensões de cada produto: <b>altura, largura, comprimento</b> e <b>peso</b>."
+       }
+      ],
+      [
+       {
+        "t": "p",
+        "html": "Quando estiver tudo preenchido, o botão da coluna <b>Status</b> fica <b>verde</b>."
+       }
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}
