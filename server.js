@@ -476,6 +476,7 @@ app.get('/api/attachments/:id', asyncRoute(async (req, res) => {
   const message = await store.getMessage(attachment.message_id);
   const scope = message && await resolveScope(message.message.scope, userId);
   if (!scope) return res.status(404).json({ error: 'Arquivo não encontrado.' });
+  res.type(attachment.mime_type);
   res.set('X-Content-Type-Options', 'nosniff');
   if (Buffer.isBuffer(attachment.file_data)) {
     res.attachment(attachment.original_name);
