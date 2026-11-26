@@ -10,7 +10,7 @@ Plataforma de comunicação interna com:
 - **Redefinição de senha**: usuários podem redefinir a senha informando o nome de usuário e um código mestre configurado no servidor.
 - **Respostas**: responda a qualquer mensagem, inclusive às que contêm somente anexos; a conversa mostra uma prévia da mensagem original junto da resposta.
 - **Menções**: `@usuario`, `@todos`/`@everyone` com autocompletar (setas + Enter/Tab), destaque da mensagem e contador vermelho de menções no canal.
-- **Não lidas e notificações**: canal em negrito, divisor "Novas mensagens", total no título da aba e notificação do navegador para DMs e menções.
+- **Não lidas e notificações**: canal em negrito, divisor "Novas mensagens", total no título da aba e notificação sonora e do navegador para DMs e menções.
 - **Salas de voz e vídeo em grupo**: microfone, câmera e indicador de quem está falando.
 - **Supressão de ruído com IA**: remove ventilador, ar-condicionado, teclado, zumbido e barulho de fundo do seu
   microfone antes de enviar (botão **Ruído** ou `Ctrl+B`; ligada por padrão e lembrada pelo navegador).

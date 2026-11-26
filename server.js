@@ -121,7 +121,7 @@ app.use(express.json({ limit: '20kb' }));
 // O index.html é sempre revalidado e aponta para os arquivos com "?v=<hash do conteúdo>";
 // com o hash certo na URL eles são servidos com cache de 1 ano (o hash muda a cada deploy).
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const VERSIONED = ['styles.css', 'rtc.js', 'app.js'];
+const VERSIONED = ['styles.css', 'rtc.js', 'app.js', 'sounds/message-notification.mp3'];
 const SIO_VERSION = require('socket.io/package.json').version;
 const assets = { stamp: '', html: '', hash: {} };
 
@@ -149,7 +149,7 @@ app.get(['/', '/index.html'], (_req, res) => {
 app.use(express.static(PUBLIC_DIR, {
   index: false,
   setHeaders(res, filePath) {
-    const name = path.basename(filePath);
+    const name = path.relative(PUBLIC_DIR, filePath).replace(/\\/g, '/');
     const v = res.req.query.v;
     if (VERSIONED.includes(name) && v && v === loadAssets().hash[name]) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');

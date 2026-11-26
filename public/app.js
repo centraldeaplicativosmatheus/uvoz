@@ -2067,7 +2067,7 @@
   });
 
   function notify(m) {
-    playTone('notify');
+    playNotificationSound();
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (!document.hidden && document.hasFocus()) return;
     const author = state.users.get(m.author.id)?.displayName || m.author.name;
@@ -2472,12 +2472,67 @@
   // -------------------------------------------------------------------------
   let toneCtx = null;
   let toneIdle = null;
+  let notificationBufferPromise = null;
+  let notificationBusyUntil = 0;
+  const notificationSoundUrl = $('#notification-sound-resource')?.src;
+  function loadNotificationBuffer() {
+    if (!notificationBufferPromise) {
+      notificationBufferPromise = fetch(notificationSoundUrl)
+        .then((response) => {
+          if (!response.ok) throw new Error('Não foi possível carregar o som de notificação.');
+          return response.arrayBuffer();
+        })
+        .then((data) => {
+          toneCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+          return toneCtx.decodeAudioData(data);
+        })
+        .catch((err) => {
+          notificationBufferPromise = null;
+          console.error('[uvoz] erro carregando o som de notificação:', err);
+          return null;
+        });
+    }
+    return notificationBufferPromise;
+  }
+
+  function playNotificationSound() {
+    try {
+      toneCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+      if (toneCtx.state === 'suspended') toneCtx.resume().catch((err) => {
+        console.error('[uvoz] não foi possível iniciar o áudio de notificação:', err);
+      });
+      clearTimeout(toneIdle);
+      loadNotificationBuffer().then((buffer) => {
+        if (!buffer) return playTone('notify');
+        const source = toneCtx.createBufferSource();
+        const gain = toneCtx.createGain();
+        const compressor = toneCtx.createDynamicsCompressor();
+        source.buffer = buffer;
+        gain.gain.value = 1.5;
+        compressor.threshold.value = -3;
+        compressor.knee.value = 0;
+        compressor.ratio.value = 12;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.15;
+        source.connect(gain).connect(compressor).connect(toneCtx.destination);
+        source.start();
+        notificationBusyUntil = performance.now() + buffer.duration * 1000;
+        toneIdle = setTimeout(() => toneCtx.suspend().catch((err) => {
+          console.error('[uvoz] não foi possível suspender o áudio:', err);
+        }), (buffer.duration + 1) * 1000);
+      });
+    } catch (err) {
+      console.error('[uvoz] erro ao reproduzir o som de notificação:', err);
+    }
+  }
+
   function playTone(kind) {
     try {
       toneCtx ||= new (window.AudioContext || window.webkitAudioContext)();
       if (toneCtx.state === 'suspended') toneCtx.resume().catch(() => {});
       clearTimeout(toneIdle); // libera o dispositivo de áudio quando não há som tocando
-      toneIdle = setTimeout(() => toneCtx.suspend().catch(() => {}), 1500);
+      const idleDelay = Math.max(1500, notificationBusyUntil - performance.now() + 500);
+      toneIdle = setTimeout(() => toneCtx.suspend().catch(() => {}), idleDelay);
       const notes = { join: [523, 784], leave: [784, 523], mute: [440], unmute: [660], notify: [880, 1175] }[kind] || [600];
       let t = toneCtx.currentTime;
       for (const f of notes) {
@@ -2495,6 +2550,8 @@
       }
     } catch { /* sem áudio */ }
   }
+
+  loadNotificationBuffer();
 
   // -------------------------------------------------------------------------
   // Início
